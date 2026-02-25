@@ -21,8 +21,9 @@ import java.util.stream.Collectors;
 
 /**
  * 请求参数校验切面，统一对Controller中@RequestBody映射的对象进行校验，在Controller方法中无需单独处理
+ *
  * @author 1115suc
-  @date 2026/2/25
+ * @date 2026/2/25
  */
 @Aspect
 @Slf4j
@@ -32,7 +33,9 @@ import java.util.stream.Collectors;
 public class ValidatedAspect {
     private final Validator validator;
 
-    @Around("execution(* *(..)) && (@within(org.springframework.web.bind.annotation.RestController) || @within(org.springframework.stereotype.Controller))")
+    @Around("execution(* *(..)) && ("
+            + "@within(org.springframework.web.bind.annotation.RestController) || "
+            + "@within(org.springframework.stereotype.Controller))")
     public Object around(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
         // 获取@RequestBody映射的对象
         Object body = AspectUtil.getBody(proceedingJoinPoint);

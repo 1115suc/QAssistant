@@ -23,6 +23,12 @@ spring:
       connection-test-query: SELECT 1
       # 自动提交
       auto-commit: true
+  data:
+    redis:
+      host: 192.168.150.101
+      port: 6379
+      password: 123321
+      database: 0
 
 mybatis-plus:
   # mapper.xml 文件位置
@@ -34,3 +40,7 @@ mybatis-plus:
     map-underscore-to-camel-case: true
     # 开发阶段可开启日志
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      # 主键策略：
+      id-type: ASSIGN_ID

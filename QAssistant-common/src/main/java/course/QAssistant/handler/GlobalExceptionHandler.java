@@ -13,6 +13,7 @@ import jakarta.validation.ValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -23,6 +24,25 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * 请求体解析异常处理
+     * 用于处理请求体格式错误、空字符串、JSON解析失败等情况
+     *
+     * @param exception 请求体不可读异常
+     * @return 响应数据
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> handle(HttpMessageNotReadableException exception) {
+        if (ObjectUtil.isNotEmpty(exception.getCause())) {
+            log.error("请求体解析异常 -> ", exception);
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(MapUtil.<String, Object>builder()
+                        .put("code", HttpStatus.BAD_REQUEST.value())
+                        .put("msg", "请求体格式错误，请传入正确的JSON格式数据")
+                        .build());
+    }
 
     /**
      * 参数校验失败异常

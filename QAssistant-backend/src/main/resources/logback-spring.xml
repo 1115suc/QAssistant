@@ -5,7 +5,7 @@
 
     <!-- 定义了一个名为serverName的属性，它的值来自于logging.file.name，如果没有找到该属性默认为QAssistant（根据业务修改） -->
     <springProperty name="serverName" source="logging.file.name" defaultValue="QAssistant"/>
-    <springProperty name="logging.path" source="logging.file.path" defaultValue="D:\Develop\JavaProject\QAssistant\document\log"/>
+    <springProperty name="logging.path" source="logging.file.path" defaultValue="D:/Develop/JavaProject/QAssistant/document/log/"/>
 
     <!-- Logback 的状态监听器配置，以下三种方式选一种即可-->
     <!-- 1. 默认：输出到控制台，开发环境推荐，便于排错-->

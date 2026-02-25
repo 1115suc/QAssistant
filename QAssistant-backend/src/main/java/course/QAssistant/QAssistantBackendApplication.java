@@ -1,13 +1,17 @@
 package course.QAssistant;
 
+import lombok.extern.slf4j.Slf4j;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+@Slf4j
 @MapperScan("course.QAssistant.mapper")
 @SpringBootApplication
 public class QAssistantBackendApplication {
     public static void main(String[] args) {
+        log.info("QAssistantBackendApplication start...");
         SpringApplication.run(QAssistantBackendApplication.class, args);
+        log.info("QAssistantBackendApplication start success...");
     }
 }
