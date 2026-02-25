@@ -1,0 +1,10 @@
+knife4j:
+  enable: true
+  swagger:
+    package-path: course.QAssistant.controller
+    title: QAssistant - 青伴助手服务接口文档
+    description: 该服务提供青伴助手的服务接口。
+    contact-name: ${spring.application.name}
+    contact-url: www.QAssistant.com
+    contact-email: 1115suc@gmail.com
+    version: ${spring.application.version}
