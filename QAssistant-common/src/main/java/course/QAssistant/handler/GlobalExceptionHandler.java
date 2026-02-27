@@ -15,15 +15,39 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * 处理 MethodArgumentNotValidException (Spring Boot 参数校验失败)
+     * @param exception 参数校验异常
+     * @return 响应数据
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Object> handleMethodArgumentNotValidException(MethodArgumentNotValidException exception) {
+        log.error("参数校验失败异常 -> ", exception); // 总是打印日志
+        BindingResult bindingResult = exception.getBindingResult();
+        Map<String, String> errors = new HashMap<>();
+        for (FieldError fieldError : bindingResult.getFieldErrors()) {
+            errors.put(fieldError.getField(), fieldError.getDefaultMessage());
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(MapUtil.<String, Object>builder()
+                        .put("code", HttpStatus.BAD_REQUEST.value())
+                        .put("msg", errors) // 返回具体的字段错误信息
+                        .build());
+    }
 
     /**
      * 请求体解析异常处理
@@ -34,9 +58,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Object> handle(HttpMessageNotReadableException exception) {
-        if (ObjectUtil.isNotEmpty(exception.getCause())) {
-            log.error("请求体解析异常 -> ", exception);
-        }
+        log.error("请求体解析异常 -> ", exception); // 总是打印日志
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(MapUtil.<String, Object>builder()
                         .put("code", HttpStatus.BAD_REQUEST.value())
@@ -52,15 +74,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<Object> handle(ValidationException exception) {
+        log.error("参数校验失败异常 -> ", exception); // 总是打印日志
         List<String> errors = null;
         if (exception instanceof ConstraintViolationException) {
             ConstraintViolationException exs = (ConstraintViolationException) exception;
             Set<ConstraintViolation<?>> violations = exs.getConstraintViolations();
             errors = violations.stream()
                     .map(ConstraintViolation::getMessage).collect(Collectors.toList());
-        }
-        if (ObjectUtil.isNotEmpty(exception.getCause())) {
-            log.error("参数校验失败异常 -> ", exception);
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(MapUtil.<String, Object>builder()
@@ -77,9 +97,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(QAException.class)
     public ResponseEntity<Object> handle(QAException exception) {
-        if (ObjectUtil.isNotEmpty(exception.getCause())) {
-            log.error("自定义异常处理 -> ", exception);
-        }
+        log.error("自定义异常处理 -> ", exception); // 总是打印日志
         return ResponseEntity.status(exception.getStatus())
                 .body(MapUtil.<String, Object>builder()
                         .put("code", exception.getCode())
@@ -95,9 +113,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(QAWebException.class)
     public ResponseEntity<Object> handle(QAWebException exception) {
-        if (ObjectUtil.isNotEmpty(exception.getCause())) {
-            log.error("自定义异常处理 -> ", exception);
-        }
+        log.error("自定义异常处理 -> ", exception); // 总是打印日志
         JSONObject jsonObject = JSONUtil.parseObj(exception);
         return ResponseEntity.ok(MapUtil.<String, Object>builder()
                         .put("code", exception.getCode())
@@ -113,10 +129,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handle(Exception exception) {
-        if (ObjectUtil.isNotEmpty(exception.getCause())) {
-            log.error("其他未知异常 -> ", exception);
-        }
-
+        log.error("其他未知异常 -> ", exception); // 总是打印日志
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(MapUtil.<String, Object>builder()
                         .put("code", HttpStatus.INTERNAL_SERVER_ERROR.value())
