@@ -1,13 +1,10 @@
 package course.QAssistant.service.impl;
 
 import cn.hutool.core.util.RandomUtil;
-import com.baomidou.mybatisplus.core.toolkit.Constants;
 import course.QAssistant.constant.RedisConstant;
 import course.QAssistant.constant.TimeConstant;
-import course.QAssistant.exception.QAException;
 import course.QAssistant.exception.QAWebException;
-import course.QAssistant.pojo.vo.request.EmailCheckCodeVo;
-import course.QAssistant.pojo.vo.response.CheckCodeVo;
+import course.QAssistant.pojo.vo.request.EmailCheckCodeVO;
 import course.QAssistant.pojo.vo.response.R;
 import course.QAssistant.pojo.vo.response.ResponseCode;
 import course.QAssistant.properties.EmailConfigProperties;
@@ -25,40 +22,37 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import static course.QAssistant.service.base.BaseService.vertifyCheckCode;
+
 @Slf4j
 @Service("emailCodeService")
 @RequiredArgsConstructor
 public class EmailCodeServiceImpl implements EmailCodeService {
 
-	private final RedisUtil redisUtil;
+    private final RedisUtil redisUtil;
     private final JavaMailSender javaMailSender;
     private final EmailConfigProperties emailConfig;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public R sendEmailCode(EmailCheckCodeVo vo) {
+    public R sendEmailCode(EmailCheckCodeVO vo) {
         String sessionId = vo.getSessionId();
         String checkCode = vo.getCheckCode();
-        String verification = (String) redisUtil.get(RedisConstant.CAPTCHA_KEY + sessionId);
-        if (StringUtil.isBlank(verification)) {
-            throw new QAWebException(ResponseCode.CHECK_CODE_EXPIRED.getMessage());
-        }
-        if (!StringUtil.equals(verification, checkCode)) {
-            throw new QAWebException(ResponseCode.CHECK_CODE_ERROR.getMessage());
-        }
+
+        vertifyCheckCode(checkCode, sessionId, redisUtil);
 
         String email = vo.getEmail();
-		if (redisUtil.hasKey(RedisConstant.EMAIL_CODE + email)) {
-			throw new QAWebException(ResponseCode.EMAIL_SEND_ERROR_WAIT.getMessage());
+        if (redisUtil.hasKey(RedisConstant.EMAIL_CODE + email)) {
+            throw new QAWebException(ResponseCode.EMAIL_SEND_ERROR_WAIT.getMessage());
         }
         String code = RandomUtil.randomNumbers(6);
         try {
-			sentMailCode(email, code);
-			redisUtil.set(RedisConstant.EMAIL_CODE + email, code, TimeConstant.FIVE_MINUTE);
-			return R.ok(ResponseCode.EMAIL_SEND_SUCCESS.getMessage());
-		} catch (Exception e) {
-			throw new QAWebException(ResponseCode.EMAIL_SEND_ERROR.getMessage(), e);
-		}
+            sentMailCode(email, code);
+            redisUtil.set(RedisConstant.EMAIL_CODE + email, code, TimeConstant.FIVE_MINUTE);
+            return R.ok(ResponseCode.EMAIL_SEND_SUCCESS.getMessage());
+        } catch (Exception e) {
+            throw new QAWebException(ResponseCode.EMAIL_SEND_ERROR.getMessage(), e);
+        }
     }
 
     private void sentMailCode(String toEmail, String code) {
@@ -83,13 +77,13 @@ public class EmailCodeServiceImpl implements EmailCodeService {
 
     @Override
     public void checkCode(String email, String code) {
-		if (!redisUtil.hasKey(RedisConstant.EMAIL_CODE + email)) {
-			throw new QAWebException(ResponseCode.CHECK_CODE_ERROR.getMessage());
+        if (!redisUtil.hasKey(RedisConstant.EMAIL_CODE + email)) {
+            throw new QAWebException(ResponseCode.CHECK_CODE_ERROR.getMessage());
         }
-		if (!redisUtil.get(RedisConstant.EMAIL_CODE + email).equals(code)) {
-			throw new QAWebException(ResponseCode.CHECK_CODE_ERROR.getMessage());
+        if (!redisUtil.get(RedisConstant.EMAIL_CODE + email).equals(code)) {
+            throw new QAWebException(ResponseCode.CHECK_CODE_ERROR.getMessage());
         }
-		// 验证码验证成功后，删除验证码
-		redisUtil.del(RedisConstant.EMAIL_CODE + email);
+        // 验证码验证成功后，删除验证码
+        redisUtil.del(RedisConstant.EMAIL_CODE + email);
     }
 }

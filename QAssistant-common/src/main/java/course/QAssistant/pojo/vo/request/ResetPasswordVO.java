@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Schema(description = "重置密码值对象类")
 @Data
-public class ResetPasswordVo {
+public class ResetPasswordVO {
     // 用户邮箱地址
     @NotBlank(message = "邮箱地址不能为空")
     @Schema(description = "用户邮箱地址")

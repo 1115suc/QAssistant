@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @Schema(description = "邮箱验证码请求类")
-public class EmailCheckCodeVo {
+public class EmailCheckCodeVO {
     @NotBlank(message = "邮箱不能为空")
     @Schema(description = "邮箱")
     private String email;

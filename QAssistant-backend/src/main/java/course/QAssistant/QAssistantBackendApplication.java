@@ -10,8 +10,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication()
 public class QAssistantBackendApplication {
     public static void main(String[] args) {
-        log.info("QAssistantBackendApplication start...");
         SpringApplication.run(QAssistantBackendApplication.class, args);
-        log.info("QAssistantBackendApplication start success...");
     }
 }
