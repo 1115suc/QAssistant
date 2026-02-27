@@ -3,8 +3,17 @@ package course.QAssistant.pojo.vo.response;
 public enum ResponseCode{
     ERROR(0,"操作失败"),
     SUCCESS(200,"操作成功"),
+    REGISTER_SUCCESS(200,"注册成功"),
+    CHECK_CODE_EXPIRED(0,"验证码已失效"),
     DATA_ERROR(0,"参数异常"),
+    EMAIL_SEND_SUCCESS(200,"邮件发送成功"),
+    // 邮件发送失败
+    EMAIL_SEND_ERROR(0,"邮件发送失败"),
+    // 邮件已发送,请稍后重试
+    EMAIL_SEND_ERROR_WAIT(0,"邮件已发送,请稍后重试"),
     NO_RESPONSE_DATA(0,"无响应数据"),
+    // 生成校验码失败
+    CHECK_CODE_GENERATE_ERROR(0,"生成校验码失败"),
     CHECK_CODE_NOT_EMPTY(0,"验证码不能为空"),
     CHECK_CODE_ERROR(0,"验证码错误"),
     USERNAME_OR_PASSWORD_ERROR(0,"用户名或密码错误"),
@@ -20,6 +29,7 @@ public enum ResponseCode{
     OPERATION_MENU_PERMISSION_URL_CODE_NULL(0,"菜单权限的按钮标识不能为空"),
     ROLE_PERMISSION_RELATION(0, "该菜单权限存在子集关联，不允许删除"),
     SYSTEM_PASSWORD_ERROR(0,"系统密码错误");
+
 
     private int code;
     private String message;

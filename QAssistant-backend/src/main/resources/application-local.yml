@@ -1,0 +1,20 @@
+email:
+  username: 3894507061@qq.com
+  password: xmhauivhgeafcchb
+
+mysql:
+  ip: 192.168.150.101
+  port: 3306
+  username: root
+  password: 123
+
+redis:
+  ip: 192.168.150.101
+  port: 6379
+  password: 123321
+
+minio:
+  url: http://192.168.150.101:9000
+  accessKey: minio
+  secretKey: bo@DwF1mzr_wF7am
+  bucketName: 1115suc

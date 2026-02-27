@@ -1,9 +1,9 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.150.101:3306/QAssistant?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123
+    url: jdbc:mysql://${mysql.ip}:${mysql.port}/QAssistant?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${mysql.username}
+    password: ${mysql.password}
     # HikariCP 连接池配置
     type: com.zaxxer.hikari.HikariDataSource
     hikari:
@@ -25,9 +25,9 @@ spring:
       auto-commit: true
   data:
     redis:
-      host: 192.168.150.101
-      port: 6379
-      password: 123321
+      host: ${redis.ip}
+      port: ${redis.port}
+      password: ${redis.password}
       database: 0
 
 mybatis-plus:

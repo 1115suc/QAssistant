@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @Slf4j
 @MapperScan("course.QAssistant.mapper")
-@SpringBootApplication
+@SpringBootApplication()
 public class QAssistantBackendApplication {
     public static void main(String[] args) {
         log.info("QAssistantBackendApplication start...");

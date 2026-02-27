@@ -11,7 +11,32 @@ spring:
     name: QAssistant-backend
     version: 1.0.0
   profiles:
-    active: datasource,swagger
+    active: datasource,swagger,minio,local
+  mail:
+    # SMTP服务器地址
+    host: smtp.qq.com
+    # SMTP端口号(465为SSL端口，587为TLS端口)
+    port: 465
+    # 邮箱账号(使用环境变量避免敏感信息泄露)
+    username: ${email.username}
+    # 邮箱授权码(使用环境变量避免敏感信息泄露)
+    password: ${email.password}
+    # 默认编码格式
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          socketFactory:
+            class: javax.net.ssl.SSLSocketFactory
+          # 启用SMTP认证
+          auth: true
+          starttls:
+            # 启用STARTTLS加密
+            enable: true
+            # 要求必须使用STARTTLS
+            required: true
+        # 开启调试模式，生产环境建议关闭
+        # debug: true
 
 logging:
   config: classpath:logback-spring.xml

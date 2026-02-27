@@ -29,11 +29,7 @@ public class EmailLoginVo {
     @Schema(description = "创建来源(1.web 2.android 3.ios)")
     private Integer createWhere;
     // 图形验证码
-    @NotBlank(message = "图形验证码不能为空")
-    @Schema(description = "图形验证码")
-    private String checkCode;
-    // 图形验证码的Id值
-    @NotBlank(message = "验证码ID不能为空")
-    @Schema(description = "图形验证码的Id值")
-    private String sessionId;
+    @NotBlank(message = "邮箱验证码不能为空")
+    @Schema(description = "邮箱验证码")
+    private String EmailCode;
 }

@@ -4,6 +4,7 @@ import cn.hutool.captcha.CaptchaUtil;
 import cn.hutool.captcha.LineCaptcha;
 import cn.hutool.captcha.generator.RandomGenerator;
 import cn.hutool.core.util.ObjectUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import course.QAssistant.constant.RedisConstant;
 import course.QAssistant.constant.TimeConstant;
@@ -13,29 +14,35 @@ import course.QAssistant.pojo.po.SysUser;
 import course.QAssistant.pojo.vo.request.EmailLoginVo;
 import course.QAssistant.pojo.vo.response.CheckCodeVo;
 import course.QAssistant.pojo.vo.response.R;
+import course.QAssistant.pojo.vo.response.ResponseCode;
+import course.QAssistant.service.EmailCodeService;
 import course.QAssistant.service.SysUserService;
 import course.QAssistant.util.IdWorker;
 import course.QAssistant.util.RedisUtil;
+import jodd.util.StringUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.awt.*;
 
 
 /**
-* @author 1115suc
-* @description 针对表【sys_user(用户表)】的数据库操作Service实现
-* @createDate 2026-02-25 12:22:35
-*/
+ * @author 1115suc
+ * @description 针对表【sys_user(用户表)】的数据库操作Service实现
+ * @createDate 2026-02-25 12:22:35
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
-    implements SysUserService {
+        implements SysUserService {
 
     private final IdWorker idWorker;
     private final RedisUtil redisUtil;
+    private final SysUserMapper sysUserMapper;
+    private final EmailCodeService emailCodeService;
 
     @Override
     public R<CheckCodeVo> getCaptcha() {
@@ -59,16 +66,27 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
         checkCodeVo.setImageData(lineCaptcha.getImageBase64Data());
         if (ObjectUtil.isNotEmpty(checkCodeVo)) {
             return R.ok(checkCodeVo);
-        }else {
+        } else {
             log.error("生成校验码失败!!");
-            throw new QAException("生成校验码失败,请稍后重试");
+            throw new QAException(ResponseCode.CHECK_CODE_GENERATE_ERROR.getMessage());
         }
     }
 
     @Override
-    public R<String> register(EmailLoginVo emailLoginVo) {
+    public R register(EmailLoginVo emailLoginVo) {
+        try {
 
-        return null;
+            // 判断邮箱是否已存在
+            LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(SysUser::getEmail, emailLoginVo.getEmail());
+            if (sysUserMapper.selectOne(queryWrapper) != null) {
+                return R.error(ResponseCode.ACCOUNT_EXISTS_ERROR.getMessage());
+            }
+
+            return R.ok(ResponseCode.REGISTER_SUCCESS.getMessage());
+        } finally {
+
+        }
     }
 }
 

@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-
 @Configuration
 public class CommonConfig {
     // 密码加密器 BCryptPasswordEncoder 方法采用 SHA-256 对密码进行加密

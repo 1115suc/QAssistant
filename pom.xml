@@ -21,6 +21,7 @@
         <module>QAssistant-common</module>
         <module>QAssistant-backend</module>
         <module>QAssistant-admin</module>
+        <module>QAssistant-MinIO</module>
     </modules>
 
     <properties>
@@ -71,6 +72,12 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-security</artifactId>
+                <version>${spring.boot.version}</version>
+            </dependency>
+            <!-- Spring Boot 邮件支持 -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-mail</artifactId>
                 <version>${spring.boot.version}</version>
             </dependency>
             <!-- Spring Boot Starter Test -->

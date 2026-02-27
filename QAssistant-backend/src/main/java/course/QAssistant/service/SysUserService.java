@@ -15,5 +15,6 @@ public interface SysUserService extends IService<SysUser> {
     // 获取验证码
     R<CheckCodeVo> getCaptcha();
     // 用户注册接口
-    R<String> register(EmailLoginVo emailLoginVo);
+    R register(EmailLoginVo emailLoginVo);
+
 }

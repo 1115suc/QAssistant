@@ -28,3 +28,5 @@ document/log
 QAssistant-admin/target
 QAssistant-backend/target
 QAssistant-common/target
+
+*/src/main/resources/application-local.yml
