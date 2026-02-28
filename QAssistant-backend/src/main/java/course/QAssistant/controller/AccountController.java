@@ -21,12 +21,12 @@ import org.springframework.web.bind.annotation.*;
 
 @Validated
 @RestController
-@RequestMapping("/user")
+@RequestMapping("/account")
 @RequiredArgsConstructor
 @Tag(name = "用户管理", description = "用户相关接口，包括验证码获取、用户注册、登录等功能")
-public class UserController {
+public class AccountController {
 
-    private static final Logger log = LoggerFactory.getLogger(UserController.class);
+    private static final Logger log = LoggerFactory.getLogger(AccountController.class);
     private final SysUserService sysUserService;
     private final EmailCodeService emailCodeService;
 

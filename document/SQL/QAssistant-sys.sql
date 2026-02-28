@@ -7,7 +7,7 @@ CREATE TABLE `sys_log`
 (
     `id`          bigint(20)                                               NOT NULL COMMENT '主键',
     `user_id`     varchar(64) CHARACTER SET utf8 COLLATE utf8_general_ci   NULL DEFAULT NULL COMMENT '用户id',
-    `username`    varchar(50) CHARACTER SET utf8 COLLATE utf8_general_ci   NULL DEFAULT NULL COMMENT '用户名',
+    `uid`         varchar(50) CHARACTER SET utf8 COLLATE utf8_general_ci   NULL DEFAULT NULL COMMENT 'uid',
     `operation`   varchar(50) CHARACTER SET utf8 COLLATE utf8_general_ci   NULL DEFAULT NULL COMMENT '用户操作：DELETE ADD GET UPDATE',
     `time`        int(11)                                                  NULL DEFAULT NULL COMMENT '响应时间,单位毫秒',
     `method`      varchar(200) CHARACTER SET utf8 COLLATE utf8_general_ci  NULL DEFAULT NULL COMMENT '请求方法（控制层方法全限定名）',
@@ -24,7 +24,7 @@ DROP TABLE IF EXISTS `sys_user`;
 CREATE TABLE `sys_user`
 (
     `id`              bigint(20)                                              NOT NULL COMMENT '用户id',
-    `uid`             varchar(50) CHARACTER SET utf8 COLLATE utf8_general_ci  NOT NULL COMMENT '账户',
+    `uid`             varchar(50) CHARACTER SET utf8 COLLATE utf8_general_ci  NOT NULL COMMENT 'uid',
     `password`        varchar(200) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL COMMENT '用户密码密文',
     `phone`           varchar(20) CHARACTER SET utf8 COLLATE utf8_general_ci  NULL DEFAULT NULL COMMENT '手机号码',
     `real_name`       varchar(60) CHARACTER SET utf8 COLLATE utf8_general_ci  NULL DEFAULT NULL COMMENT '真实名称',
@@ -33,7 +33,6 @@ CREATE TABLE `sys_user`
     `avatar`          varchar(200) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '用户头像',
     `description`     varchar(300) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '用户简介',
     `birthday`        datetime(0)                                             NULL DEFAULT NULL COMMENT '生日',
-    `add_friends`     tinyint(4)                                              NULL DEFAULT 0 COMMENT '是否允许添加好友(0.同意后加好友 1.直接加好友 2.不允许加好友)',
     `last_login_time` datetime(0)                                             NULL DEFAULT NULL COMMENT '最后登录时间',
     `area_name`       varchar(100) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '地区名称',
     `area_code`       varchar(100) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '地区编码',
@@ -44,7 +43,7 @@ CREATE TABLE `sys_user`
     `create_time`     datetime(0)                                             NULL DEFAULT NULL COMMENT '创建时间',
     `update_time`     datetime(0)                                             NULL DEFAULT NULL COMMENT '更新时间',
     PRIMARY KEY (`id`) USING BTREE,
-    UNIQUE INDEX `unique_username` (`username`) USING BTREE COMMENT '用户名唯一',
+    UNIQUE INDEX `unique_username` (`uid`) USING BTREE COMMENT '用户名唯一',
     UNIQUE INDEX `unique_email` (`email`) USING BTREE COMMENT '邮箱唯一'
 ) ENGINE = InnoDB
   CHARACTER SET = utf8

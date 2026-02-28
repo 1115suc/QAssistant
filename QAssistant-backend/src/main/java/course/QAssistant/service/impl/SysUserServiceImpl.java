@@ -105,10 +105,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
 
         String uid = "U" + RandomUtil.randomNumbers(9);
         sysUser.setEmail(emailLoginVo.getEmail());
-        sysUser.setUsername(uid);
+        sysUser.setUid(uid);
         sysUser.setPassword(passwordEncoder.encode(emailLoginVo.getPassword()));
         sysUser.setNickName(emailLoginVo.getNickName());
-        sysUser.setAddFriends(AddFriendsEnum.AGREE_ADD_FRIEND.getCode());
         sysUser.setSex(SexEnum.UNKNOWN.getCode());
         sysUser.setDeleted(DeletedEnum.NOT_DELETED.getCode());
         sysUser.setStatus(StatusEnum.NORMAL.getCode());
@@ -170,7 +169,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
         }
 
         String redisPrefix = LoginTypeEnum.of(loginWhere).getPrefix();
-        String token = DigestUtil.md5Hex(sysUser.getUsername());
+        String token = DigestUtil.md5Hex(sysUser.getUid());
 
         try {
             if (redisUtil.hasKey(redisPrefix + token)) {
@@ -184,7 +183,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
                 }
             }else{
                 TokenUserDTO tokenUserDTO = new TokenUserDTO();
-                tokenUserDTO.setUsername(sysUser.getUsername());
+                tokenUserDTO.setUid(sysUser.getUid());
                 tokenUserDTO.setNickname(sysUser.getNickName());
                 tokenUserDTO.setLoginWhere(loginWhere);
                 tokenUserDTO.setExpireAt(System.currentTimeMillis() + TimeConstant.ONE_WEEK);
@@ -197,7 +196,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
             sysUserMapper.updateById(sysUser);
 
             UserLoginVO userLoginVO = new UserLoginVO();
-            userLoginVO.setUsername(sysUser.getUsername());
+            userLoginVO.setUid(sysUser.getUid());
             userLoginVO.setNickname(sysUser.getNickName());
             userLoginVO.setAvatar(sysUser.getAvatar());
             userLoginVO.setToken(token);
@@ -229,9 +228,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
             TokenUserDTO tokenUserDTO = JSONUtil.toBean(tokenLoginInfo.toString(), TokenUserDTO.class);
 
             // 获取用户信息
-            String username = tokenUserDTO.getUsername();
+            String uid = tokenUserDTO.getUid();
             LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(SysUser::getUsername, username);
+            queryWrapper.eq(SysUser::getUid, uid);
             SysUser sysUser = sysUserMapper.selectOne(queryWrapper);
             if (ObjectUtil.isNull(sysUser)) {
                 throw new QAWebException(ResponseCode.ACCOUNT_NOT_EXISTS.getMessage());

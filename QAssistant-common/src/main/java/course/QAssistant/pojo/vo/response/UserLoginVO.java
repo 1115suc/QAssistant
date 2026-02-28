@@ -7,8 +7,8 @@ import lombok.Data;
 @Data
 @Schema(description = "用户登录返回类")
 public class UserLoginVO {
-    @Schema(description = "用户名")
-    private String username;
+    @Schema(description = "用户id")
+    private String uid;
 
     @Schema(description = "用户昵称")
     private String nickname;

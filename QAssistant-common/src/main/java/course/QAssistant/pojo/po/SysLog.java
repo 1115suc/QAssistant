@@ -27,7 +27,7 @@ public class SysLog {
     /**
      * 用户名
      */
-    private String username;
+    private String uid;
 
     /**
      * 用户操作：DELETE ADD GET UPDATE

@@ -20,9 +20,9 @@ public class SysUser {
     private Long id;
 
     /**
-     * 账户
+     * 用户id
      */
-    private String username;
+    private String uid;
 
     /**
      * 用户密码密文
@@ -63,11 +63,6 @@ public class SysUser {
      * 生日
      */
     private Date birthday;
-
-    /**
-     * 是否允许添加好友(0.同意后加好友 1.直接加好友 2.不允许加好友)
-     */
-    private Integer addFriends;
 
     /**
      * 最后登录时间
