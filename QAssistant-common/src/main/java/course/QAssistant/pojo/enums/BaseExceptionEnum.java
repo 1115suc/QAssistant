@@ -1,4 +1,4 @@
-package course.QAssistant.enums;
+package course.QAssistant.pojo.enums;
 
 public interface BaseExceptionEnum extends BaseEnum {
     // http响应状态码

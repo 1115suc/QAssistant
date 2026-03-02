@@ -2,7 +2,7 @@ package course.QAssistant.constant;
 
 public class RedisConstant {
     // 项目名
-    public static final String PROJECT_NAME = "QTalk:";
+    public static final String PROJECT_NAME = "QAssistant:";
     // 验证码
     public static final String CHECK_CODE = PROJECT_NAME + "CheckCode:";
     // 图形验证码key
@@ -17,4 +17,6 @@ public class RedisConstant {
     public static final String ANDROID_LOGIN = TOKEN + "AndroidLogin:";
     // IOS登录
     public static final String IOS_LOGIN = TOKEN + "IOSLogin:";
+    // 幂等性Key
+    public static final String IDEMPOTENT_KEY = PROJECT_NAME + "Idempotent:";
 }

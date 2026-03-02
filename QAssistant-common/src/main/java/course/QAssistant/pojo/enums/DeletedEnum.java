@@ -1,4 +1,4 @@
-package course.QAssistant.enums;
+package course.QAssistant.pojo.enums;
 
 public enum DeletedEnum {
     NOT_DELETED(0, "未删除"),

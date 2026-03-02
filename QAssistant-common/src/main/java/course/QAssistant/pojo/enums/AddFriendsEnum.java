@@ -1,4 +1,4 @@
-package course.QAssistant.enums;
+package course.QAssistant.pojo.enums;
 
 public enum AddFriendsEnum {
     AGREE_ADD_FRIEND(0, "同意后加好友"),

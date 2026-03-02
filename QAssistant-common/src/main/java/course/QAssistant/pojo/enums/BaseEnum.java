@@ -1,4 +1,4 @@
-package course.QAssistant.enums;
+package course.QAssistant.pojo.enums;
 
 public interface BaseEnum {
     // 业务状态码

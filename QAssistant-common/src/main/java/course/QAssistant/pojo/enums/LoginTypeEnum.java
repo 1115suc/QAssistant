@@ -1,8 +1,7 @@
-package course.QAssistant.enums;
+package course.QAssistant.pojo.enums;
 
 import course.QAssistant.constant.RedisConstant;
 import course.QAssistant.exception.QAWebException;
-import course.QAssistant.pojo.vo.response.ResponseCode;
 
 import java.util.Arrays;
 import java.util.Map;

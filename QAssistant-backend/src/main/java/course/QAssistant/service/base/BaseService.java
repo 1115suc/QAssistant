@@ -2,7 +2,7 @@ package course.QAssistant.service.base;
 
 import course.QAssistant.constant.RedisConstant;
 import course.QAssistant.exception.QAWebException;
-import course.QAssistant.pojo.vo.response.ResponseCode;
+import course.QAssistant.pojo.enums.ResponseCode;
 import course.QAssistant.util.RedisUtil;
 import jodd.util.StringUtil;
 

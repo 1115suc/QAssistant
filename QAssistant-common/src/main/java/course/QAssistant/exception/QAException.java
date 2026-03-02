@@ -1,7 +1,7 @@
 package course.QAssistant.exception;
 
-import course.QAssistant.enums.BaseEnum;
-import course.QAssistant.enums.BaseExceptionEnum;
+import course.QAssistant.pojo.enums.BaseEnum;
+import course.QAssistant.pojo.enums.BaseExceptionEnum;
 import lombok.Data;
 
 /**

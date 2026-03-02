@@ -1,13 +1,14 @@
-package course.QAssistant.enums;
+package course.QAssistant.pojo.enums;
 
-public enum StatusEnum {
-    NORMAL(0, "正常"),
-    DISABLED(1, "锁定");
+public enum SexEnum {
+
+    UNKNOWN(0, "未知"),
+    MALE(1, "男"),
+    FEMALE(2, "女");
 
     private Integer code;
     private String message;
-
-    StatusEnum(Integer code, String message) {
+    private SexEnum(Integer code, String message) {
         this.code = code;
         this.message = message;
     }
