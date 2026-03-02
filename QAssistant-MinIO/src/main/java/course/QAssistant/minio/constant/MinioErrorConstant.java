@@ -41,6 +41,11 @@ public class MinioErrorConstant {
      */
     public static final String ERROR_1007_MINIO_DELETE_BATCH_FAIL = "批量删除文件失败";
 
+    /**
+     * 文件已存在
+     */
+    public static final String ERROR_1008_MINIO_FILE_ALREADY_EXISTS = "文件已存在，请更改文件名或选择其他文件";
+
 
     private MinioErrorConstant() {
         // 私有构造方法，防止实例化

@@ -46,6 +46,26 @@ public interface MinIOFileService {
     FileUploadResponse uploadFile(MultipartFile file, String bucketName, String customPath);
 
     /**
+     * 上传通用文件（重载，支持最大文件大小限制）
+     *
+     * @param file       MultipartFile文件
+     * @param bucketName 存储桶名称（可选，为空时使用默认值）
+     * @param customPath 自定义文件路径
+     * @param maxFileSize 最大文件大小限制（字节），-1表示不限制
+     * @return FileUploadResponse响应对象
+     */
+    FileUploadResponse uploadFile(MultipartFile file, String bucketName, String customPath, long maxFileSize);
+
+    /**
+     * 专门上传视频
+     *
+     * @param file       MultipartFile文件
+     * @param bucketName 存储桶名称
+     * @return FileUploadResponse响应对象
+     */
+    FileUploadResponse uploadVideo(MultipartFile file, String bucketName);
+
+    /**
      * 专门上传图片
      *
      * @param file       MultipartFile文件
@@ -65,6 +85,18 @@ public interface MinIOFileService {
      * @return FileUploadResponse响应对象
      */
     FileUploadResponse uploadImage(MultipartFile file, String bucketName, String customPath, boolean thumbnail);
+
+    /**
+     * 专门上传图片（重载，支持最大文件大小限制）
+     *
+     * @param file        MultipartFile文件
+     * @param bucketName  存储桶名称
+     * @param customPath  自定义路径
+     * @param thumbnail   是否生成缩略图
+     * @param maxFileSize 最大文件大小限制（字节），-1表示不限制。例如：10MB = 10 * 1024 * 1024
+     * @return FileUploadResponse响应对象
+     */
+    FileUploadResponse uploadImage(MultipartFile file, String bucketName, String customPath, boolean thumbnail, long maxFileSize);
 
     /**
      * 获取预览URL（临时签名URL）

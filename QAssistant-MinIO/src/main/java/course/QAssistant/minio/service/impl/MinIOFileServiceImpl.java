@@ -3,6 +3,7 @@ package course.QAssistant.minio.service.impl;
 import cn.hutool.core.img.ImgUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
 import course.QAssistant.minio.constant.MinioErrorConstant;
@@ -74,10 +75,10 @@ public class MinIOFileServiceImpl implements MinIOFileService {
                 // 公开读取策略
                 policy = String.format("{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[\"*\"]},\"Action\":[\"s3:GetObject\"],\"Resource\":[\"arn:aws:s3:::%s/*\"]}]}", bucketName);
                 minioClient.setBucketPolicy(
-                    SetBucketPolicyArgs.builder()
-                            .bucket(bucketName)
-                            .config(policy)
-                            .build()
+                        SetBucketPolicyArgs.builder()
+                                .bucket(bucketName)
+                                .config(policy)
+                                .build()
                 );
             } else {
                 // 删除策略使其变为私有
@@ -100,6 +101,10 @@ public class MinIOFileServiceImpl implements MinIOFileService {
             "mp4", "avi", "mov", "wmv", "flv"
     ));
 
+    private static final Set<String> ALLOWED_VIDEO_EXTENSIONS = new HashSet<>(Arrays.asList(
+            "mp4", "avi", "mov", "wmv", "flv", "mkv", "webm"
+    ));
+
     /**
      * 上传通用文件
      *
@@ -120,6 +125,10 @@ public class MinIOFileServiceImpl implements MinIOFileService {
      * @return FileUploadResponse响应对象
      */
     public FileUploadResponse uploadFile(MultipartFile file, String bucketName, String customPath) {
+        if (ObjectUtil.isNull(file)) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
+
         if (StrUtil.isBlank(bucketName)) {
             bucketName = minIOConfigProperties.getBucketName();
         }
@@ -136,34 +145,49 @@ public class MinIOFileServiceImpl implements MinIOFileService {
             contentType = "application/octet-stream";
         }
 
+        String objectName = minioFileStorageUtil.buildFilePath(customPath, originalFilename);
+
         // 生成唯一的对象名称
-        String fileName = IdUtil.simpleUUID() + "." + suffix;
-        String objectName = minioFileStorageUtil.buildFilePath(customPath, fileName);
+        // String fileName = IdUtil.simpleUUID() + "." + suffix;
+        // String objectName = minioFileStorageUtil.buildFilePath(customPath, fileName);
 
         try {
             // 读取字节以避免流耗尽问题并计算MD5
             byte[] bytes = file.getBytes();
             String md5 = SecureUtil.md5(new ByteArrayInputStream(bytes));
 
-            Map<String, String> metadata = new HashMap<>();
-            // 仅在元数据中存储安全字符
-            // metadata.put("originalName", originalFilename != null ? originalFilename : "");
-            metadata.put("md5", md5);
-            metadata.put("fileSize", String.valueOf(file.getSize()));
+            String finalObjectName = objectName;
 
-            InputStream inputStream = new ByteArrayInputStream(bytes);
+            // 使用同步块确保线程安全
+            synchronized (this) {
+                // 存在性检查
+                if (checkFileExist(bucketName, finalObjectName)) {
+                    log.warn("文件已存在: bucket={}, object={}", bucketName, finalObjectName);
+                    throw new MinioException(MinioErrorConstant.ERROR_1008_MINIO_FILE_ALREADY_EXISTS);
+                }
 
-            minioClient.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(bucketName)
-                            .object(objectName)
-                            .stream(inputStream, file.getSize(), -1)
-                            .contentType(contentType)
-                            .userMetadata(metadata)
-                            .build()
-            );
+                Map<String, String> metadata = new HashMap<>();
+                // 仅在元数据中存储安全字符
+                // metadata.put("originalName", originalFilename != null ? originalFilename : "");
+                metadata.put("md5", md5);
+                metadata.put("fileSize", String.valueOf(file.getSize()));
 
-            String fileUrl = getPreviewUrl(bucketName, objectName);
+                InputStream inputStream = new ByteArrayInputStream(bytes);
+
+                minioClient.putObject(
+                        PutObjectArgs.builder()
+                                .bucket(bucketName)
+                                .object(finalObjectName)
+                                .stream(inputStream, file.getSize(), -1)
+                                .contentType(contentType)
+                                .userMetadata(metadata)
+                                .build()
+                );
+
+                log.info("文件上传成功: bucket={}, object={}", bucketName, finalObjectName);
+            }
+
+            String fileUrl = getPreviewUrl(bucketName, finalObjectName);
 
             return FileUploadResponse.builder()
                     .fileId(objectName)
@@ -174,6 +198,8 @@ public class MinIOFileServiceImpl implements MinIOFileService {
                     .mimeType(contentType)
                     .uploadTime(LocalDateTime.now())
                     .build();
+        } catch (MinioException e) {
+            throw e;
         } catch (Exception e) {
             log.error("文件上传失败: {}", originalFilename, e);
             throw new MinioException(MinioErrorConstant.ERROR_1003_MINIO_UPLOAD_FAIL, e);
@@ -202,6 +228,24 @@ public class MinIOFileServiceImpl implements MinIOFileService {
      * @return FileUploadResponse响应对象
      */
     public FileUploadResponse uploadImage(MultipartFile file, String bucketName, String customPath, boolean thumbnail) {
+        return uploadImage(file, bucketName, customPath, thumbnail, 50 * 1024 * 1024);
+    }
+
+    /**
+     * 专门上传图片（重载，支持最大文件大小限制）
+     *
+     * @param file        MultipartFile文件
+     * @param bucketName  存储桶名称
+     * @param customPath  自定义路径
+     * @param thumbnail   是否生成缩略图
+     * @param maxFileSize 最大文件大小限制（字节），-1表示不限制
+     * @return FileUploadResponse响应对象
+     */
+    @Override
+    public FileUploadResponse uploadImage(MultipartFile file, String bucketName, String customPath, boolean thumbnail, long maxFileSize) {
+        if (ObjectUtil.isNull(file)) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
         // 验证图片格式
         String originalFilename = file.getOriginalFilename();
         String suffix = FileUtil.extName(originalFilename);
@@ -209,10 +253,15 @@ public class MinIOFileServiceImpl implements MinIOFileService {
             throw new IllegalArgumentException("无效的图片格式。支持: jpg, png, gif, webp");
         }
 
-        // 验证大小（5MB限制）
-        long maxSize = 5 * 1024 * 1024;
-        if (file.getSize() > maxSize) {
-            throw new IllegalArgumentException("图片大小超过5MB限制");
+        // 验证大小
+        if (maxFileSize > 0 && file.getSize() > maxFileSize) {
+            String sizeMsg;
+            if (maxFileSize >= 1024 * 1024 * 1024) {
+                sizeMsg = (maxFileSize / (1024 * 1024 * 1024)) + "GB";
+            } else {
+                sizeMsg = (maxFileSize / (1024 * 1024)) + "MB";
+            }
+            throw new IllegalArgumentException("图片大小超过限制: " + sizeMsg);
         }
 
         FileUploadResponse response = uploadFile(file, bucketName, customPath);
@@ -276,7 +325,7 @@ public class MinIOFileServiceImpl implements MinIOFileService {
      * 获取永久URL（如果存储桶是公开的）
      */
     public String getPublicUrl(String bucketName, String objectName) {
-         if (StrUtil.isBlank(bucketName)) {
+        if (StrUtil.isBlank(bucketName)) {
             bucketName = minIOConfigProperties.getBucketName();
         }
         return String.format("%s/%s/%s", minIOConfigProperties.getEndpoint(), bucketName, objectName);
@@ -358,6 +407,191 @@ public class MinIOFileServiceImpl implements MinIOFileService {
         } catch (Exception e) {
             log.error("批量删除文件失败", e);
             throw new MinioException(MinioErrorConstant.ERROR_1007_MINIO_DELETE_BATCH_FAIL, e);
+        }
+    }
+
+    /**
+     * 上传通用文件（重载，支持最大文件大小限制）
+     */
+    @Override
+    public FileUploadResponse uploadFile(MultipartFile file, String bucketName, String customPath, long maxFileSize) {
+        if (ObjectUtil.isNull(file)) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
+
+        if (maxFileSize > 0 && file.getSize() > maxFileSize) {
+            throw new IllegalArgumentException("文件大小超过限制: " + maxFileSize + " bytes");
+        }
+
+        if (StrUtil.isBlank(bucketName)) {
+            bucketName = minIOConfigProperties.getBucketName();
+        }
+        checkBucket(bucketName);
+
+        String originalFilename = file.getOriginalFilename();
+        String suffix = FileUtil.extName(originalFilename);
+        if (StrUtil.isBlank(suffix) || !ALLOWED_EXTENSIONS.contains(suffix.toLowerCase())) {
+            throw new IllegalArgumentException("不支持的文件类型: " + suffix);
+        }
+
+        String contentType = file.getContentType();
+        if (StrUtil.isBlank(contentType)) {
+            contentType = "application/octet-stream";
+        }
+
+        String objectName = minioFileStorageUtil.buildFilePath(customPath, originalFilename);
+
+        try {
+            byte[] bytes = file.getBytes();
+            String md5 = SecureUtil.md5(new ByteArrayInputStream(bytes));
+            String finalObjectName = objectName;
+
+            synchronized (this) {
+                if (checkFileExist(bucketName, finalObjectName)) {
+                    log.warn("文件已存在: bucket={}, object={}", bucketName, finalObjectName);
+                    throw new MinioException(MinioErrorConstant.ERROR_1008_MINIO_FILE_ALREADY_EXISTS);
+                }
+
+                Map<String, String> metadata = new HashMap<>();
+                metadata.put("md5", md5);
+                metadata.put("fileSize", String.valueOf(file.getSize()));
+
+                InputStream inputStream = new ByteArrayInputStream(bytes);
+
+                minioClient.putObject(
+                        PutObjectArgs.builder()
+                                .bucket(bucketName)
+                                .object(finalObjectName)
+                                .stream(inputStream, file.getSize(), -1)
+                                .contentType(contentType)
+                                .userMetadata(metadata)
+                                .build()
+                );
+
+                log.info("文件上传成功: bucket={}, object={}", bucketName, finalObjectName);
+            }
+
+            String fileUrl = getPreviewUrl(bucketName, finalObjectName);
+
+            return FileUploadResponse.builder()
+                    .fileId(objectName)
+                    .fileName(objectName)
+                    .originalName(originalFilename)
+                    .fileSize(file.getSize())
+                    .fileUrl(fileUrl)
+                    .mimeType(contentType)
+                    .uploadTime(LocalDateTime.now())
+                    .build();
+        } catch (MinioException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("文件上传失败: {}", originalFilename, e);
+            throw new MinioException(MinioErrorConstant.ERROR_1003_MINIO_UPLOAD_FAIL, e);
+        }
+    }
+
+    /**
+     * 专门上传视频
+     */
+    @Override
+    public FileUploadResponse uploadVideo(MultipartFile file, String bucketName) {
+        if (ObjectUtil.isNull(file)) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
+
+        if (StrUtil.isBlank(bucketName)) {
+            bucketName = minIOConfigProperties.getBucketName();
+        }
+        checkBucket(bucketName);
+
+        String originalFilename = file.getOriginalFilename();
+        String suffix = FileUtil.extName(originalFilename);
+        if (StrUtil.isBlank(suffix) || !ALLOWED_VIDEO_EXTENSIONS.contains(suffix.toLowerCase())) {
+            throw new IllegalArgumentException("不支持的视频格式: " + suffix);
+        }
+
+        String contentType = file.getContentType();
+        if (StrUtil.isBlank(contentType)) {
+            contentType = "application/octet-stream";
+        }
+
+        String objectName = minioFileStorageUtil.buildFilePath(null, originalFilename);
+
+        try {
+            byte[] bytes = file.getBytes();
+            String md5 = SecureUtil.md5(new ByteArrayInputStream(bytes));
+            String finalObjectName = objectName;
+
+            synchronized (this) {
+                if (checkFileExist(bucketName, finalObjectName)) {
+                    log.warn("文件已存在: bucket={}, object={}", bucketName, finalObjectName);
+                    throw new MinioException(MinioErrorConstant.ERROR_1008_MINIO_FILE_ALREADY_EXISTS);
+                }
+
+                Map<String, String> metadata = new HashMap<>();
+                metadata.put("md5", md5);
+                metadata.put("fileSize", String.valueOf(file.getSize()));
+
+                InputStream inputStream = new ByteArrayInputStream(bytes);
+
+                minioClient.putObject(
+                        PutObjectArgs.builder()
+                                .bucket(bucketName)
+                                .object(finalObjectName)
+                                .stream(inputStream, file.getSize(), -1)
+                                .contentType(contentType)
+                                .userMetadata(metadata)
+                                .build()
+                );
+                log.info("视频上传成功: bucket={}, object={}", bucketName, finalObjectName);
+            }
+
+            String fileUrl = getPreviewUrl(bucketName, finalObjectName);
+
+            return FileUploadResponse.builder()
+                    .fileId(objectName)
+                    .fileName(objectName)
+                    .originalName(originalFilename)
+                    .fileSize(file.getSize())
+                    .fileUrl(fileUrl)
+                    .mimeType(contentType)
+                    .uploadTime(LocalDateTime.now())
+                    .build();
+        } catch (MinioException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("视频上传失败: {}", originalFilename, e);
+            throw new MinioException(MinioErrorConstant.ERROR_1003_MINIO_UPLOAD_FAIL, e);
+        }
+    }
+
+    /**
+     * 检查文件是否存在
+     *
+     * @param bucketName 存储桶名称
+     * @param objectName 对象名称
+     * @return true: 存在, false: 不存在
+     */
+    private boolean checkFileExist(String bucketName, String objectName) {
+        try {
+            minioClient.statObject(StatObjectArgs.builder()
+                    .bucket(bucketName)
+                    .object(objectName)
+                    .build());
+            return true;
+        } catch (io.minio.errors.ErrorResponseException e) {
+            // ErrorResponseException 包含错误码，如果为 NoSuchKey 则表示文件不存在
+            if ("NoSuchKey".equals(e.errorResponse().code())) {
+                return false;
+            }
+            // 其他错误可能也意味着无法访问，但在本场景下如果不确定，暂时抛出异常或返回 false 需谨慎
+            // 这里为了简单起见，假设 NoSuchKey 是唯一的“不存在”错误
+            log.warn("检查文件是否存在MinIO错误: code={}, msg={}", e.errorResponse().code(), e.errorResponse().message());
+            return false;
+        } catch (Exception e) {
+            // 其他异常，如网络错误
+            log.warn("检查文件是否存在异常: {}", objectName, e);
+            throw new MinioException(MinioErrorConstant.ERROR_1001_MINIO_CHECK_BUCKET_FAIL, e);
         }
     }
 }
