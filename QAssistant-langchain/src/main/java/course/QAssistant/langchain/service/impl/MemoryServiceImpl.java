@@ -1,6 +1,6 @@
 package course.QAssistant.langchain.service.impl;
 
-import course.qassistant.langchain.service.MemoryService;
+import course.QAssistant.langchain.service.MemoryService;
 import dev.langchain4j.data.message.ChatMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

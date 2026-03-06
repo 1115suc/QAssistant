@@ -1,14 +1,20 @@
 package course.QAssistant.langchain.service.impl;
 
 import course.QAssistant.langchain.service.ChatService;
+import course.QAssistant.langchain.service.IChatAgent;
 import course.QAssistant.langchain.context.ContextValidator;
 import course.QAssistant.langchain.context.ConversationContextHolder;
+import course.QAssistant.langchain.entity.UserAiConfig;
+import course.QAssistant.langchain.factory.AiModelFactory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.service.TokenStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 聊天服务实现类
@@ -22,8 +28,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
-    private final ChatLanguageModel chatLanguageModel;
-    private final StreamingChatLanguageModel streamingChatLanguageModel;
+    private final ChatLanguageModel defaultChatLanguageModel;
+    private final StreamingChatLanguageModel defaultStreamingChatLanguageModel;
+    private final AiModelFactory aiModelFactory;
+    private final UserAiConfigService userAiConfigService;
+
+    // 简单的本地缓存，实际生产应使用 Caffeine 或 Redis
+    private final Map<String, IChatAgent> agentCache = new ConcurrentHashMap<>();
 
     /**
      * 同步发送提示到 AI 模型并返回响应。
@@ -40,18 +51,41 @@ public class ChatServiceImpl implements ChatService {
         ContextValidator.assertContext(userId, aiUid);
 
         log.info("正在为用户 {} 发送提示，AI UID: {}", userId, aiUid);
+        
         try {
-            if (chatLanguageModel == null) {
-                throw new IllegalStateException("未配置 ChatLanguageModel。");
+            // 1. 如果指定了 aiUid，尝试加载用户自定义配置
+            if (aiUid != null && !aiUid.isEmpty()) {
+                IChatAgent agent = getOrCreateAgent(aiUid);
+                if (agent != null) {
+                    return agent.chat(prompt);
+                }
             }
-            // 这里可以集成 ChatMemory，使用 userUid + aiUid + conversationUid 作为 key
-            String response = chatLanguageModel.generate(prompt);
-            log.info("已收到用户 {} 的响应", userId);
-            return response;
+
+            // 2. 降级使用系统默认模型
+            if (defaultChatLanguageModel == null) {
+                throw new IllegalStateException("未配置默认 ChatLanguageModel。");
+            }
+            // 注意：直接使用 defaultChatLanguageModel 不会自动管理 ChatMemory，
+            // 建议系统默认 AI 也通过 AiServices 封装，这里仅作演示
+            return defaultChatLanguageModel.generate(prompt);
+
         } catch (Exception e) {
             log.error("为用户 {} 发送提示时出错：{}", userId, e);
             throw new RuntimeException("发送提示失败", e);
         }
+    }
+
+    private IChatAgent getOrCreateAgent(String aiUid) {
+        return agentCache.computeIfAbsent(aiUid, key -> {
+            // 从数据库加载配置
+            UserAiConfig config = userAiConfigService.getByAiUid(key);
+            if (config == null) {
+                log.warn("未找到 AI 配置：{}，将使用默认模型", key);
+                return null;
+            }
+            // 动态构建代理
+            return aiModelFactory.createChatAgent(config);
+        });
     }
 
     @Override
