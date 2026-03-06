@@ -60,6 +60,7 @@ public class VerificationOptionalAspect {
         if (StrUtil.isBlank(type)) {
             throw new QAWebException(ResponseCode.LOGIN_FROM_ERROR.getMessage(), ResponseCode.LOGIN_FROM_ERROR.getCode());
         }
+
         Integer loginType = Convert.toInt(type);
         String redisPrefix = LoginTypeEnum.of(loginType).getPrefix();
         boolean hasKey = redisUtil.hasKey(redisPrefix + token);

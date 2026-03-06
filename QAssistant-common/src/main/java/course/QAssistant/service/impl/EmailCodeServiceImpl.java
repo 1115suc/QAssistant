@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-import static course.QAssistant.service.base.BaseService.vertifyCheckCode;
+import static course.QAssistant.handler.VerifyHandler.verifyCheckCode;
 
 @Slf4j
 @Service("emailCodeService")
@@ -38,7 +38,7 @@ public class EmailCodeServiceImpl implements EmailCodeService {
         String sessionId = vo.getSessionId();
         String checkCode = vo.getCheckCode();
 
-        vertifyCheckCode(checkCode, sessionId, redisUtil);
+        verifyCheckCode(checkCode, sessionId, redisUtil);
 
         String email = vo.getEmail();
         if (redisUtil.hasKey(RedisConstant.EMAIL_CODE + email)) {

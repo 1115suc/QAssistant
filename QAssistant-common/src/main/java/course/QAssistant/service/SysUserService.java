@@ -25,7 +25,7 @@ public interface SysUserService extends IService<SysUser> {
     // 邮箱验证码登录
     R<UserLoginVO> emailCodeLogin(EmailCodeLoginVO emailCodeLoginVo);
     // 登出
-    R logout(String token, Integer loginType);
+    R logout(String token, String loginType);
     // 重置密码
-    R resetPassword(String token, Integer loginType, ResetPasswordVO resetVo);
+    R resetPassword(String token, String loginType, ResetPasswordVO resetVo);
 }

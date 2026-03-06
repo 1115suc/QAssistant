@@ -22,6 +22,7 @@
         <module>QAssistant-backend</module>
         <module>QAssistant-admin</module>
         <module>QAssistant-MinIO</module>
+        <module>QAssistant-langchain</module>
     </modules>
 
     <properties>

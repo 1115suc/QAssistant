@@ -1,4 +1,4 @@
-package course.QAssistant.service.base;
+package course.QAssistant.handler;
 
 import course.QAssistant.constant.RedisConstant;
 import course.QAssistant.exception.QAWebException;
@@ -6,8 +6,8 @@ import course.QAssistant.pojo.enums.ResponseCode;
 import course.QAssistant.util.RedisUtil;
 import jodd.util.StringUtil;
 
-public class BaseService {
-    public static void vertifyCheckCode(String checkCode, String sessionId, RedisUtil redisUtil) {
+public class VerifyHandler {
+    public static void verifyCheckCode(String checkCode, String sessionId, RedisUtil redisUtil) {
         if (!redisUtil.hasKey(RedisConstant.CAPTCHA_KEY + sessionId)) {
             throw new QAWebException(ResponseCode.CHECK_CODE_EXPIRED.getMessage());
         }

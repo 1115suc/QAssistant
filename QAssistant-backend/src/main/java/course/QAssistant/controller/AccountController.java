@@ -1,5 +1,6 @@
 package course.QAssistant.controller;
 
+import course.QAssistant.annotation.VerificationInterceptor;
 import course.QAssistant.pojo.vo.request.*;
 import course.QAssistant.pojo.vo.response.CheckCodeVO;
 import course.QAssistant.pojo.vo.response.R;
@@ -12,7 +13,6 @@ import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/account")
 @RequiredArgsConstructor
-@Tag(name = "用户管理", description = "用户相关接口，包括验证码获取、用户注册、登录等功能")
+@Tag(name = "账号管理", description = "账号相关接口，包括验证码获取、用户注册、登录等功能")
 public class AccountController {
 
     private static final Logger log = LoggerFactory.getLogger(AccountController.class);
@@ -90,9 +90,10 @@ public class AccountController {
             @Parameter(name = "Authorization", description = "用户Token", required = true, in = ParameterIn.HEADER),
             @Parameter(name = "LoginType", description = "登录方式(1.Web 2.Android 3.ios)", required = true, in = ParameterIn.QUERY)
     })
+    @VerificationInterceptor(checkLogin = true)
     @DeleteMapping()
     public R logout(@NotBlank(message = "Authorization不能为空") @RequestHeader("Authorization") String token,
-                    @NotNull(message = "登录方式不能为空") Integer LoginType) {
+                    @NotBlank(message = "登录方式不能为空") @RequestHeader("Authorization") String LoginType) {
         return sysUserService.logout(token, LoginType);
     }
 
@@ -104,12 +105,13 @@ public class AccountController {
     @Parameters({
             @Parameter(name = "Authorization", description = "用户Token", required = true, in = ParameterIn.HEADER),
             @Parameter(name = "LoginType", description = "登录方式(1.Web 2.Android 3.ios)", required = true, in = ParameterIn.QUERY),
-            @Parameter(name = "resetVo", description = "重置密码信息", required = true)
     })
+    @VerificationInterceptor(checkLogin = true)
     @PutMapping()
     public R resetPassword(@NotBlank(message = "Authorization不能为空") @RequestHeader("Authorization") String token,
-                           @RequestBody ResetPasswordVO resetVo,
-                           @NotNull(message = "登录方式不能为空") Integer LoginType) {
+                           @NotBlank(message = "登录方式不能为空") @RequestHeader("Authorization") String LoginType,
+                           @RequestBody ResetPasswordVO resetVo) {
+
         return sysUserService.resetPassword(token, LoginType, resetVo);
     }
 }
