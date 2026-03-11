@@ -103,8 +103,6 @@ CREATE TABLE `sys_permission`
   COLLATE = utf8_general_ci COMMENT = '权限表（菜单）'
   ROW_FORMAT = COMPACT;
 
-
-
 DROP TABLE IF EXISTS `sys_role_permission`;
 CREATE TABLE `sys_role_permission`
 (

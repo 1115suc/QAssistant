@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="course.QAssistant.mapper.UserAiPreferenceMapper">
+
+    <resultMap id="BaseResultMap" type="course.QAssistant.pojo.po.UserAiPreference">
+            <id property="id" column="id" />
+            <result property="userUid" column="user_uid" />
+            <result property="aiModelId" column="ai_model_id" />
+            <result property="temperature" column="temperature" />
+            <result property="topP" column="top_p" />
+            <result property="maxTokens" column="max_tokens" />
+            <result property="systemPrompt" column="system_prompt" />
+            <result property="createdAt" column="created_at" />
+            <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,user_uid,ai_model_id,temperature,top_p,max_tokens,
+        system_prompt,created_at,updated_at
+    </sql>
+</mapper>

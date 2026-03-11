@@ -1,6 +1,7 @@
 package course.QAssistant.minio.service;
 
 import course.QAssistant.minio.model.FileUploadResponse;
+import course.QAssistant.minio.enums.MinioFileTypeEnum;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
@@ -44,6 +45,18 @@ public interface MinIOFileService {
      * @return FileUploadResponse响应对象
      */
     FileUploadResponse uploadFile(MultipartFile file, String bucketName, String customPath);
+
+    /**
+     * 上传通用文件（按业务路径规则）
+     * 存储路径：QAssistant/{uid}/{fileType}/{originalName}
+     *
+     * @param file       MultipartFile文件
+     * @param bucketName 存储桶名称（可选，为空时使用默认值）
+     * @param uid        用户uid
+     * @param fileType   文件类型
+     * @return FileUploadResponse响应对象
+     */
+    FileUploadResponse uploadFile(MultipartFile file, String bucketName, String uid, MinioFileTypeEnum fileType);
 
     /**
      * 上传通用文件（重载，支持最大文件大小限制）
