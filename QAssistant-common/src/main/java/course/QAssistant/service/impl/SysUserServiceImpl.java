@@ -170,7 +170,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
         }
 
         // 密码校验 (仅当传入密码时)
-        if (password != null && !passwordEncoder.matches(passwordEncoder.encode(password), sysUser.getPassword())) {
+        if (password != null && !passwordEncoder.matches(password, sysUser.getPassword())) {
             throw new QAWebException(ResponseCode.PASSWORD_ERROR.getMessage());
         }
 

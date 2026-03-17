@@ -411,7 +411,7 @@ public class MinIOFileServiceImpl implements MinIOFileService {
                             .method(Method.GET)
                             .bucket(bucketName)
                             .object(objectName)
-                            .expiry(1, TimeUnit.HOURS) // 1小时过期
+                            .expiry(3, TimeUnit.HOURS) // 1小时过期
                             .build()
             );
         } catch (Exception e) {
