@@ -1,0 +1,11 @@
+course\QAssistant\minio\util\MinioFileStorageUtil.class
+course\QAssistant\minio\enums\MinioFileTypeEnum.class
+course\QAssistant\minio\model\FileUploadResponse.class
+course\QAssistant\minio\service\impl\MinIOFileServiceImpl.class
+course\QAssistant\minio\config\MinIOConfig.class
+course\QAssistant\minio\constant\MinioErrorConstant.class
+course\QAssistant\minio\service\MinIOFileService.class
+course\QAssistant\minio\model\FileUploadResponse$FileUploadResponseBuilder.class
+course\QAssistant\minio\properties\MinIOConfigProperties.class
+META-INF\spring-configuration-metadata.json
+course\QAssistant\minio\exception\MinioException.class

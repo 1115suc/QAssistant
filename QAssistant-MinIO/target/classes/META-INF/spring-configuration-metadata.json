@@ -1,0 +1,57 @@
+{
+  "groups": [
+    {
+      "name": "minio",
+      "type": "course.QAssistant.minio.properties.MinIOConfigProperties",
+      "sourceType": "course.QAssistant.minio.properties.MinIOConfigProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "minio.access-key",
+      "type": "java.lang.String",
+      "description": "MinIO 访问密钥 (Access Key)",
+      "sourceType": "course.QAssistant.minio.properties.MinIOConfigProperties"
+    },
+    {
+      "name": "minio.bucket-name",
+      "type": "java.lang.String",
+      "description": "默认存储桶名称",
+      "sourceType": "course.QAssistant.minio.properties.MinIOConfigProperties"
+    },
+    {
+      "name": "minio.connect-timeout",
+      "type": "java.lang.Long",
+      "description": "连接超时时间（毫秒）。默认为 10 秒。",
+      "sourceType": "course.QAssistant.minio.properties.MinIOConfigProperties",
+      "defaultValue": 10000
+    },
+    {
+      "name": "minio.endpoint",
+      "type": "java.lang.String",
+      "description": "MinIO 服务终端地址",
+      "sourceType": "course.QAssistant.minio.properties.MinIOConfigProperties"
+    },
+    {
+      "name": "minio.read-timeout",
+      "type": "java.lang.Long",
+      "description": "读取超时时间（毫秒）。默认为 60 秒。",
+      "sourceType": "course.QAssistant.minio.properties.MinIOConfigProperties",
+      "defaultValue": 60000
+    },
+    {
+      "name": "minio.secret-key",
+      "type": "java.lang.String",
+      "description": "MinIO 安全密钥 (Secret Key)",
+      "sourceType": "course.QAssistant.minio.properties.MinIOConfigProperties"
+    },
+    {
+      "name": "minio.write-timeout",
+      "type": "java.lang.Long",
+      "description": "写入超时时间（毫秒）。默认为 60 秒。",
+      "sourceType": "course.QAssistant.minio.properties.MinIOConfigProperties",
+      "defaultValue": 60000
+    }
+  ],
+  "hints": []
+}

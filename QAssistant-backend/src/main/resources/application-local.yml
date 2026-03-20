@@ -13,8 +13,35 @@ redis:
   port: 6379
   password:
 
+mongodb:
+  ip: 192.168.150.128
+  port: 27017
+  database: QAssistant
+  username: root
+  password: 24364726
+
 minio:
   url: http://192.168.150.128:9000
   accessKey: minio
   secretKey: bo@DwF1mzr_wF7am
   bucketName: 1115suc
+
+
+qassistant:
+  qdrant:
+    qdrant-host: 192.168.150.128
+    qdrantPort: 6334
+    collectionName: QAssistant
+  aiconfig:
+    timeout: 30s
+    retry-times: 1
+    top-p: 1.0
+    temperature: 0.7
+    max-tokens: 2048
+    model-name: deepseek-chat
+    base-url: https://api.deepseek.com
+    api-key: sk-c1ccb6e88f24471a8522abb37718fe45
+    embedding-model-name: BAAI/bge-large-zh-v1.5
+    embedding-model-url: https://api.siliconflow.cn/v1
+    embedding-api-key: sk-xgeiyazhpkjbdpijdmtnwnzgvblkqlxdccarwgqnfvmscdpa
+

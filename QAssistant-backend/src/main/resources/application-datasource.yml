@@ -29,6 +29,14 @@ spring:
       port: ${redis.port}
       password: ${redis.password}
       database: 0
+    mongodb:
+      host: ${mongodb.ip}
+      port: ${mongodb.port}
+      database: ${mongodb.database}
+      username: ${mongodb.username}
+      password: ${mongodb.password}
+      authentication-database: admin
+      auto-index-creation: true
 
 mybatis-plus:
   # mapper.xml 文件位置
