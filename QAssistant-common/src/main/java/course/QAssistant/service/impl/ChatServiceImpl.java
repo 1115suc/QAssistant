@@ -28,8 +28,14 @@ import course.QAssistant.repository.ChatSessionRepository;
 import course.QAssistant.service.ChatService;
 import course.QAssistant.service.ChatSessionService;
 import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.DocumentParser;
+import dev.langchain4j.data.document.DocumentSplitter;
+import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.document.parser.TextDocumentParser;
+import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
+import dev.langchain4j.data.document.parser.apache.poi.ApachePoiDocumentParser;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
+import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
@@ -38,13 +44,12 @@ import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
-import dev.langchain4j.rag.content.retriever.ContentRetriever;
-import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
-import dev.langchain4j.store.embedding.filter.Filter;
-import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
+import io.qdrant.client.QdrantClient;
+import io.qdrant.client.grpc.JsonWithInt;
+import io.qdrant.client.grpc.Points;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
@@ -58,6 +63,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -67,19 +73,27 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
-    private final AiProperties aiProperties;
-    private final MongoTemplate mongoTemplate;
-    private final RedisComponent redisComponent;
-    private final MinIOFileService minioFileService;
-    private final MiniofileMapper miniofileMapper;
-    private final UserAiModelMapper userAiModelMapper;
-    private final UserAiPreferenceMapper userAiPreferenceMapper;
-    private final ChatSessionService chatSessionService;
-    private final ChatSessionRepository chatSessionRepository;
+    private static final int    MEMORY_WINDOW_SIZE = 20;
+    private static final int    RAG_MAX_RESULTS    = 5;
+    private static final double RAG_MIN_SCORE      = 0.6;
+    private static final int    CHUNK_SIZE         = 500;
+    private static final int    CHUNK_OVERLAP      = 50;
 
-    private final EmbeddingModel embeddingModel;
-    private final EmbeddingStore<TextSegment> embeddingStore;
-    private final StreamingChatLanguageModel defaultStreamingChatLanguageModel;
+    private final QdrantClient                   qdrantClient;
+    private final AiProperties                   aiProperties;
+    private final MongoTemplate                  mongoTemplate;
+    private final RedisComponent                 redisComponent;
+    private final MinIOFileService               minioFileService;
+    private final MiniofileMapper                miniofileMapper;
+    private final UserAiModelMapper              userAiModelMapper;
+    private final UserAiPreferenceMapper         userAiPreferenceMapper;
+    private final ChatSessionService             chatSessionService;
+    private final ChatSessionRepository          chatSessionRepository;
+    private final EmbeddingModel                 embeddingModel;
+    private final EmbeddingStore<TextSegment>    embeddingStore;
+    private final StreamingChatLanguageModel     defaultStreamingChatLanguageModel;
+
+    // ==================== 对外接口 ====================
 
     @Override
     public R<ChatSessionRespVO> createSession(CreateSessionRequestVO sessionCreateVO, String token, String loginType) {
@@ -89,12 +103,12 @@ public class ChatServiceImpl implements ChatService {
                 .userUid(tokenUserDTO.getUid())
                 .title(sessionCreateVO.getTitle())
                 .build();
-        if (ObjectUtil.isNotNull(sessionCreateVO.getAiModelId())) {
 
+        if (ObjectUtil.isNotNull(sessionCreateVO.getAiModelId())) {
             UserAiModel userAiModel = userAiModelMapper.selectById(sessionCreateVO.getAiModelId());
             if (ObjectUtil.isNotNull(userAiModel)) {
                 request.setAiModelId(sessionCreateVO.getAiModelId());
-            }else  {
+            } else {
                 throw new QAWebException("该AI模型不存在");
             }
         }
@@ -115,19 +129,18 @@ public class ChatServiceImpl implements ChatService {
     public R<List<ChatSessionRespVO>> getUserSessions(String token, String loginType) {
         TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(token, loginType);
 
-        String uid = tokenUserDTO.getUid();
-        List<SessionSummaryResponse> sessionSummaries = chatSessionService.getUserSessions(uid);
-        List<ChatSessionRespVO> chatSessionRespVOS = sessionSummaries.stream().map(sessionSummaryResponse -> {
-            ChatSessionRespVO respVO = new ChatSessionRespVO();
-            respVO.setSessionId(sessionSummaryResponse.getId());
-            respVO.setTitle(sessionSummaryResponse.getTitle());
-            respVO.setAiModelId(sessionSummaryResponse.getAiModelId());
-            respVO.setCreatedAt(sessionSummaryResponse.getCreatedAt());
-            respVO.setUpdatedAt(sessionSummaryResponse.getUpdatedAt());
-            return respVO;
+        List<SessionSummaryResponse> summaries = chatSessionService.getUserSessions(tokenUserDTO.getUid());
+        List<ChatSessionRespVO> result = summaries.stream().map(s -> {
+            ChatSessionRespVO vo = new ChatSessionRespVO();
+            vo.setSessionId(s.getId());
+            vo.setTitle(s.getTitle());
+            vo.setAiModelId(s.getAiModelId());
+            vo.setCreatedAt(s.getCreatedAt());
+            vo.setUpdatedAt(s.getUpdatedAt());
+            return vo;
         }).collect(Collectors.toList());
 
-        return R.ok(chatSessionRespVOS);
+        return R.ok(result);
     }
 
     @Override
@@ -137,92 +150,71 @@ public class ChatServiceImpl implements ChatService {
                 Sinks.many().unicast().onBackpressureBuffer();
 
         try {
-            // ① 鉴权 & 会话校验
+            // ① 鉴权 & 会话归属校验
             TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(authorization, loginType);
-
             ChatSession session = chatSessionRepository
                     .findByIdAndUserUid(chatRequestVO.getSessionId(), tokenUserDTO.getUid())
                     .orElse(null);
 
             if (session == null) {
-                return errorFlux("Session not found or unauthorized");
+                sink.tryEmitNext(buildSseEvent("error", "会话不存在或无权访问"));
+                sink.tryEmitComplete();
+                return sink.asFlux();
             }
 
-            // ② 构建 StreamingChatLanguageModel
+            // ② 重建历史记忆
+            ChatMemory chatMemory = rebuildChatMemory(session);
+
+            // ③ 构建模型
             StreamingChatLanguageModel chatModel = buildChatModel(session);
 
-            // ③ 加载上下文记忆
-            ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(20);
-            for (ChatMessageDocument msg : session.getMessages()) {
-                if ("USER".equals(msg.getRole())) {
-                    chatMemory.add(new UserMessage(msg.getContent()));
-                } else if ("AI".equals(msg.getRole())) {
-                    chatMemory.add(new AiMessage(msg.getContent()));
-                }
-            }
+            // ④ 构建最终发送给模型的消息
+            //    若开启 RAG，先检索相关文档片段，拼接到用户消息前作为上下文
+            String finalMessage = buildFinalMessage(
+                    chatRequestVO.getMessage(),
+                    chatRequestVO.getRagEnabled(),
+                    session.getId(),
+                    sink
+            );
 
-            // ④ 根据 ragEnabled 决定是否挂载 RAG，分支构建 Assistant
-            ContentRetriever retriever = null;
-            if (Boolean.TRUE.equals(chatRequestVO.getRagEnabled())) {
-                retriever = buildRetriever(session.getId());
-                if (retriever != null) {
-                    log.info("RAG 已启用, sessionId: {}", session.getId());
-                } else {
-                    log.warn("RAG 检索器构建失败，降级为普通对话, sessionId: {}", session.getId());
-                }
-            }
+            // ⑤ 构建 Assistant（不使用 LangChain4j RAG 管道）
+            Assistant assistant = AiServices.builder(Assistant.class)
+                    .streamingChatLanguageModel(chatModel)
+                    .chatMemory(chatMemory)
+                    .build();
 
-            // 根据是否有 retriever 走不同分支
-            Assistant assistant;
-            if (retriever != null) {
-                assistant = AiServices.builder(Assistant.class)
-                        .streamingChatLanguageModel(chatModel)
-                        .chatMemory(chatMemory)
-                        .contentRetriever(retriever)
-                        .build();
-            } else {
-                assistant = AiServices.builder(Assistant.class)
-                        .streamingChatLanguageModel(chatModel)
-                        .chatMemory(chatMemory)
-                        .build();
-            }
-
-            // ⑤ 持久化用户消息
+            // ⑥ 持久化用户原始消息（存原始问题，不存拼接后的 prompt）
             pushMessage(session.getId(), "USER", chatRequestVO.getMessage());
 
-            // ⑥ 发起流式请求，将回调推入 Sink
-            assistant.chat(chatRequestVO.getMessage())
-                    .onNext(chunk -> sink.tryEmitNext(
-                            ServerSentEvent.<String>builder()
-                                    .data(chunk)
-                                    .build()
-                    ))
+            // ⑦ 流式推送
+            StringBuilder aiResponseBuilder = new StringBuilder();
+            assistant.chat(finalMessage)
+                    .onNext(token -> {
+                        aiResponseBuilder.append(token);
+                        sink.tryEmitNext(buildSseEvent("message", token));
+                    })
                     .onComplete(response -> {
-                        try {
-                            pushMessage(session.getId(), "AI", response.content().text());
-                        } catch (Exception e) {
-                            log.error("Failed to save AI message", e);
-                        }
-                        sink.tryEmitNext(ServerSentEvent.<String>builder()
-                                .event("finish").data("[DONE]").build());
+                        String fullReply = aiResponseBuilder.toString();
+                        pushMessage(session.getId(), "AI", fullReply);
+                        log.debug("[Chat] session={} 回复完毕，共 {} 字符",
+                                session.getId(), fullReply.length());
+                        sink.tryEmitNext(buildSseEvent("done", "[DONE]"));
                         sink.tryEmitComplete();
                     })
-                    .onError(e -> {
-                        log.error("Streaming error", e);
-                        sink.tryEmitNext(ServerSentEvent.<String>builder()
-                                .event("error").data("Error: " + e.getMessage()).build());
-                        sink.tryEmitError(e);
+                    .onError(error -> {
+                        log.error("[Chat] session={} 流式对话异常", session.getId(), error);
+                        sink.tryEmitNext(buildSseEvent("error", "AI 响应异常：" + error.getMessage()));
+                        sink.tryEmitComplete();
                     })
                     .start();
 
         } catch (Exception e) {
-            log.error("streamChat setup error", e);
-            return errorFlux(e.getMessage());
+            log.error("[Chat] streamChat 初始化异常", e);
+            sink.tryEmitNext(buildSseEvent("error", "服务异常：" + e.getMessage()));
+            sink.tryEmitComplete();
         }
 
-        return sink.asFlux()
-                .doOnCancel(() -> log.info("Client disconnected, sessionId: {}",
-                        chatRequestVO.getSessionId()));
+        return sink.asFlux();
     }
 
     @Override
@@ -232,7 +224,7 @@ public class ChatServiceImpl implements ChatService {
         try {
             ChatSession session = chatSessionRepository
                     .findByIdAndUserUid(ragUploadVO.getSessionId(), tokenUserDTO.getUid())
-                    .orElseThrow(() -> new QAWebException("Session not found or unauthorized"));
+                    .orElseThrow(() -> new QAWebException("会话不存在或无权访问"));
 
             Miniofile minioFile = miniofileMapper.selectOne(
                     new LambdaQueryWrapper<Miniofile>()
@@ -240,65 +232,172 @@ public class ChatServiceImpl implements ChatService {
                             .eq(Miniofile::getUid, tokenUserDTO.getUid())
             );
             if (ObjectUtil.isNull(minioFile)) {
-                throw new QAWebException("指定文件不存在");
+                throw new QAWebException("指定文件不存在或无权访问");
             }
 
             ingestToEmbeddingStore(minioFile, session.getId());
+            log.info("[RAG] 文件 {} 向量化完成，session={}", minioFile.getFileName(), session.getId());
 
-            return R.ok("文档上传成功，可在发送消息时传 ragEnabled=true 开启检索");
+            return R.ok("文档上传并向量化成功");
 
         } catch (QAWebException e) {
+            log.warn("[RAG] 业务校验失败：{}", e.getMessage());
             return R.error(e.getMessage());
         } catch (Exception e) {
-            log.error("Failed to ingest document", e);
-            return R.error("文档处理失败: " + e.getMessage());
+            log.error("[RAG] 文档向量化入库失败", e);
+            return R.error("文档向量化失败：" + e.getMessage());
         }
     }
 
+    // ==================== 私有方法 ====================
+
+    private String buildFinalMessage(String userMessage,
+                                     Boolean ragEnabled,
+                                     String sessionId,
+                                     Sinks.Many<ServerSentEvent<String>> sink) {
+        if (!Boolean.TRUE.equals(ragEnabled)) {
+            return userMessage;
+        }
+
+        try {
+            // Step1：用户问题向量化
+            Embedding queryEmbedding = embeddingModel.embed(userMessage).content();
+            List<Float> queryVector = new ArrayList<>();
+            for (float v : queryEmbedding.vector()) queryVector.add(v);
+
+            // Step2：构建 sessionId 过滤条件
+            Points.Filter filter = Points.Filter.newBuilder()
+                    .addMust(
+                            Points.Condition.newBuilder()
+                                    .setField(
+                                            Points.FieldCondition.newBuilder()
+                                                    .setKey("sessionId")
+                                                    .setMatch(Points.Match.newBuilder()
+                                                            .setKeyword(sessionId)
+                                                            .build())
+                                                    .build()
+                                    )
+                                    .build()
+                    )
+                    .build();
+
+            // Step3：直接用 QdrantClient 搜索
+            //   ✅ 关键：setWithVectors(true) 确保返回向量，避免 CosineSimilarity 崩溃
+            Points.SearchPoints searchRequest = Points.SearchPoints.newBuilder()
+                    .setCollectionName("QAssistant")   // 替换为你的 collection 名称
+                    .addAllVector(queryVector)
+                    .setLimit(RAG_MAX_RESULTS)
+                    .setScoreThreshold((float) RAG_MIN_SCORE)
+                    .setFilter(filter)
+                    .setWithVectors(Points.WithVectorsSelector.newBuilder().setEnable(true).build())
+                    .setWithPayload(Points.WithPayloadSelector.newBuilder().setEnable(true).build())
+                    .build();
+
+            List<Points.ScoredPoint> scoredPoints = qdrantClient.searchAsync(searchRequest).get();
+
+            if (scoredPoints == null || scoredPoints.isEmpty()) {
+                log.debug("[RAG] session={} 未检索到相关内容，使用原始消息", sessionId);
+                sink.tryEmitNext(buildSseEvent("warn", "未检索到相关文档内容，已使用普通对话模式"));
+                return userMessage;
+            }
+
+            // Step4：命中片段拼接为上下文 prompt
+            StringBuilder contextBuilder = new StringBuilder();
+            contextBuilder.append("请根据以下参考资料回答用户的问题。\n\n");
+            contextBuilder.append("【参考资料】\n");
+            int index = 1;
+            for (Points.ScoredPoint point : scoredPoints) {
+                JsonWithInt.Value textValue = point.getPayloadMap().get("text");
+                if (textValue == null) continue;
+                if (textValue.getKindCase() != JsonWithInt.Value.KindCase.STRING_VALUE) continue;
+                String text = textValue.getStringValue();
+                if (text == null || text.isBlank()) continue;
+                contextBuilder.append(index++).append(". ").append(text).append("\n\n");
+            }
+            contextBuilder.append("【用户问题】\n").append(userMessage);
+
+            String finalMessage = contextBuilder.toString();
+            log.debug("[RAG] session={} 命中 {} 条，prompt 长度={}",
+                    sessionId, scoredPoints.size(), finalMessage.length());
+            return finalMessage;
+
+        } catch (Exception e) {
+            log.error("[RAG] session={} 检索异常，降级为普通对话: {}", sessionId, e.getMessage(), e);
+            sink.tryEmitNext(buildSseEvent("warn", "RAG 检索失败，已切换为普通对话模式"));
+            return userMessage;
+        }
+    }
 
     /**
-     * 文档解析 + 向量化入库
+     * 从 MongoDB 历史消息重建 ChatMemory
+     */
+    private ChatMemory rebuildChatMemory(ChatSession session) {
+        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(MEMORY_WINDOW_SIZE);
+
+        List<ChatMessageDocument> messages = session.getMessages();
+        if (messages == null || messages.isEmpty()) {
+            return chatMemory;
+        }
+
+        for (ChatMessageDocument msg : messages) {
+            if (msg.getContent() == null || msg.getContent().isBlank()) continue;
+            switch (msg.getRole().toUpperCase()) {
+                case "USER":
+                    chatMemory.add(UserMessage.from(msg.getContent()));
+                    break;
+                case "AI":
+                case "ASSISTANT":
+                    chatMemory.add(AiMessage.from(msg.getContent()));
+                    break;
+                default:
+                    log.warn("[Memory] 未知消息角色：{}，已跳过", msg.getRole());
+            }
+        }
+
+        log.debug("[Memory] session={} 加载 {} 条历史消息", session.getId(), messages.size());
+        return chatMemory;
+    }
+
+    /**
+     * 文档解析 → 分块 → 打 sessionId 元数据标签 → 向量化入库
      */
     private void ingestToEmbeddingStore(Miniofile minioFile, String sessionId) {
         InputStream inputStream = minioFileService.downloadFile(
-                minioFile.getBucket(), minioFile.getObjectName()
-        );
+                minioFile.getBucket(), minioFile.getObjectName());
 
-        Document document = new TextDocumentParser().parse(inputStream);
-        document.metadata().put("sessionId", sessionId);
-        document.metadata().put("fileId", String.valueOf(minioFile.getId()));
+        DocumentParser parser = resolveParser(minioFile.getFileName());
+        Document document = parser.parse(inputStream);
 
-        EmbeddingStoreIngestor.builder()
-                .documentSplitter(DocumentSplitters.recursive(500, 50))
+        Metadata metadata = document.metadata();
+        metadata.put("sessionId", sessionId);
+        metadata.put("fileId", String.valueOf(minioFile.getId()));
+        metadata.put("fileName", minioFile.getFileName() != null ? minioFile.getFileName() : "unknown");
+
+        DocumentSplitter splitter = DocumentSplitters.recursive(CHUNK_SIZE, CHUNK_OVERLAP);
+
+        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
+                .documentSplitter(splitter)
                 .embeddingModel(embeddingModel)
                 .embeddingStore(embeddingStore)
-                .build()
-                .ingest(document);
+                .build();
+
+        ingestor.ingest(document);
+        log.debug("[RAG] 文件 {} 分块向量化完毕，session={}", minioFile.getFileName(), sessionId);
     }
 
     /**
-     * 构建 RAG 检索器，构建失败时返回 null 降级为普通对话
+     * 根据扩展名选择文档解析器
      */
-    private ContentRetriever buildRetriever(String sessionId) {
-        try {
-            Filter filter = MetadataFilterBuilder.metadataKey("sessionId").isEqualTo(sessionId);
-            return EmbeddingStoreContentRetriever.builder()
-                    .embeddingStore(embeddingStore)
-                    .embeddingModel(embeddingModel)
-                    .filter(filter)
-                    .maxResults(3)
-                    .minScore(0.7)
-                    .build();
-        } catch (Exception e) {
-            log.warn("RAG 检索器构建失败: {}", e.getMessage());
-            return null;
-        }
+    private DocumentParser resolveParser(String fileName) {
+        if (fileName == null) return new TextDocumentParser();
+        String lower = fileName.toLowerCase();
+        if (lower.endsWith(".pdf"))                              return new ApachePdfBoxDocumentParser();
+        if (lower.endsWith(".doc") || lower.endsWith(".docx"))  return new ApachePoiDocumentParser();
+        return new TextDocumentParser();
     }
 
     /**
-     * 构建 StreamingChatLanguageModel
-     * customModel 不为空取自定义，否则取系统默认
-     * preference  不为空取自定义，否则取系统默认
+     * 构建 StreamingChatLanguageModel（自定义模型 > 系统默认）
      */
     private StreamingChatLanguageModel buildChatModel(ChatSession session) {
         UserAiModel customModel = null;
@@ -313,12 +412,13 @@ public class ChatServiceImpl implements ChatService {
             );
         }
 
-        String baseUrl   = ObjectUtil.isNotNull(customModel) ? customModel.getBaseUrl()   : aiProperties.getBaseUrl();
-        String apiKey    = ObjectUtil.isNotNull(customModel) ? customModel.getApiKey()    : aiProperties.getApiKey();
-        String modelName = ObjectUtil.isNotNull(customModel) ? customModel.getModelName() : aiProperties.getModelName();
-
-        Double temperature = ObjectUtil.isNotNull(preference) ? Convert.toDouble(preference.getTemperature()) : aiProperties.getTemperature();
-        Double topP        = ObjectUtil.isNotNull(preference) ? Convert.toDouble(preference.getTopP())        : aiProperties.getTopP();
+        String baseUrl    = ObjectUtil.isNotNull(customModel) ? customModel.getBaseUrl()   : aiProperties.getBaseUrl();
+        String apiKey     = ObjectUtil.isNotNull(customModel) ? customModel.getApiKey()    : aiProperties.getApiKey();
+        String modelName  = ObjectUtil.isNotNull(customModel) ? customModel.getModelName() : aiProperties.getModelName();
+        Double temperature = ObjectUtil.isNotNull(preference)
+                ? Convert.toDouble(preference.getTemperature()) : aiProperties.getTemperature();
+        Double topP = ObjectUtil.isNotNull(preference)
+                ? Convert.toDouble(preference.getTopP()) : aiProperties.getTopP();
 
         return OpenAiStreamingChatModel.builder()
                 .timeout(aiProperties.getTimeout())
@@ -331,7 +431,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * push 消息到 MongoDB messages 数组 + 更新 updatedAt
+     * 持久化一条消息到 MongoDB
      */
     private void pushMessage(String sessionId, String role, String content) {
         ChatMessageDocument message = ChatMessageDocument.builder()
@@ -351,12 +451,12 @@ public class ChatServiceImpl implements ChatService {
     }
 
     /**
-     * 统一错误响应
+     * 构建 SSE 事件
      */
-    private Flux<ServerSentEvent<String>> errorFlux(String message) {
-        return Flux.just(ServerSentEvent.<String>builder()
-                .event("error")
-                .data("Error: " + message)
-                .build());
+    private ServerSentEvent<String> buildSseEvent(String event, String data) {
+        return ServerSentEvent.<String>builder()
+                .event(event)
+                .data(data)
+                .build();
     }
 }

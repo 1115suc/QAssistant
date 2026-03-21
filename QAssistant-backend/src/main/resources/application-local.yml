@@ -33,15 +33,25 @@ qassistant:
     qdrantPort: 6334
     collectionName: QAssistant
   aiconfig:
-    timeout: 30s
+    timeout: 300s
     retry-times: 1
     top-p: 1.0
     temperature: 0.7
     max-tokens: 2048
-    model-name: deepseek-chat
-    base-url: https://api.deepseek.com
-    api-key: sk-c1ccb6e88f24471a8522abb37718fe45
-    embedding-model-name: BAAI/bge-large-zh-v1.5
-    embedding-model-url: https://api.siliconflow.cn/v1
-    embedding-api-key: sk-xgeiyazhpkjbdpijdmtnwnzgvblkqlxdccarwgqnfvmscdpa
+    model-name: Qwen/Qwen3.5-397B-A17B
+    base-url: https://api.siliconflow.cn
+    api-key: sk-xgeiyazhpkjbdpijdmtnwnzgvblkqlxdccarwgqnfvmscdpa
+    embedding-model-name: BAAI/bge-m3
+#    embedding-model-url: https://api.siliconflow.cn
+#    embedding-api-key: sk-xgeiyazhpkjbdpijdmtnwnzgvblkqlxdccarwgqnfvmscdpa
 
+langchain4j:
+  open-ai:
+    embedding-model:
+      model-name: BAAI/bge-m3
+      base-url: https://api.siliconflow.cn/v1
+      api-key: sk-xgeiyazhpkjbdpijdmtnwnzgvblkqlxdccarwgqnfvmscdpa
+    streaming-chat-model:
+      model-name: Qwen/Qwen3.5-397B-A17B
+      base-url: https://api.siliconflow.cn/v1
+      api-key: sk-xgeiyazhpkjbdpijdmtnwnzgvblkqlxdccarwgqnfvmscdpa

@@ -81,17 +81,17 @@ public class ChatController {
         return chatService.streamChat(chatRequestVO, token, loginType);
     }
 
-    @Operation(summary = "上传文档进行RAG解析", description = "用户上传文件后进行切分并存入Qdrant知识库，在同一会话中提供RAG支持。")
+    @Operation(summary = "对文档进行RAG解析", description = "用户上传文件后进行切分并存入Qdrant知识库，在同一会话中提供RAG支持。")
     @Parameters({
             @Parameter(name = "Authorization", description = "用户Token", required = true, in = ParameterIn.HEADER),
             @Parameter(name = "LoginType", description = "登录方式(1.Web 2.Android 3.ios)", required = true, in = ParameterIn.HEADER)
     })
     @VerificationInterceptor(checkLogin = true)
-    @PostMapping(value = "/rag/ingest", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/rag/ingest")
     public R ingestDocument(
             @NotBlank(message = "Authorization不能为空") @RequestHeader("Authorization") String token,
             @NotBlank(message = "LoginType不能为空") @RequestHeader("LoginType") String loginType,
-            @ModelAttribute RagUploadVO ragUploadVO) {
+            @RequestBody RagUploadVO ragUploadVO) {
         return chatService.ingestDocument(ragUploadVO, token, loginType);
     }
 }

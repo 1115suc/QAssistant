@@ -46,45 +46,4 @@ public class QdrantConfig {
                 .collectionName(collectionName)
                 .build();
     }
-
-    @Bean
-    public OpenAiChatModel openAiChatModel() {
-        return OpenAiChatModel.builder()
-                .apiKey(aiProperties.getApiKey())
-                .baseUrl(aiProperties.getBaseUrl())
-                .modelName(aiProperties.getModelName())
-                .temperature(aiProperties.getTemperature())
-                .topP(aiProperties.getTopP())
-                .maxTokens(aiProperties.getMaxTokens())
-                .timeout(aiProperties.getTimeout())
-                .logRequests(true)
-                .logResponses(true)
-                .build();
-    }
-
-    @Bean
-    public EmbeddingModel openAiEmbeddingModel() {
-        return OpenAiEmbeddingModel.builder()
-                .apiKey(aiProperties.getEmbeddingApiKey())
-                .baseUrl(aiProperties.getEmbeddingModelUrl())
-                .modelName(aiProperties.getEmbeddingModelName())
-                .logRequests(true)
-                .logResponses(true)
-                .build();
-    }
-
-    @Bean
-    public StreamingChatLanguageModel streamingChatLanguageModel() {
-        return OpenAiStreamingChatModel.builder()
-                .apiKey(aiProperties.getEmbeddingApiKey())
-                .baseUrl(aiProperties.getEmbeddingModelUrl())
-                .modelName(aiProperties.getEmbeddingModelName())
-                .temperature(aiProperties.getTemperature())
-                .topP(aiProperties.getTopP())
-                .maxTokens(aiProperties.getMaxTokens())
-                .timeout(aiProperties.getTimeout())
-                .logRequests(true)
-                .logResponses(true)
-                .build();
-    }
 }
