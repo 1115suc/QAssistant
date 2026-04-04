@@ -17,40 +17,36 @@ import course.QAssistant.exception.QAException;
 import course.QAssistant.exception.QAWebException;
 import course.QAssistant.handler.RedisComponent;
 import course.QAssistant.mapper.SysUserMapper;
+import course.QAssistant.minio.model.FileUploadResponse;
+import course.QAssistant.minio.service.MinIOFileService;
 import course.QAssistant.pojo.dto.TokenUserDTO;
 import course.QAssistant.pojo.enums.DeletedEnum;
 import course.QAssistant.pojo.enums.LoginTypeEnum;
 import course.QAssistant.pojo.enums.SexEnum;
 import course.QAssistant.pojo.enums.StatusEnum;
 import course.QAssistant.pojo.po.SysUser;
-import course.QAssistant.pojo.vo.request.EmailCodeLoginVO;
-import course.QAssistant.pojo.vo.request.EmailLoginVO;
-import course.QAssistant.pojo.vo.request.EmailPasswordLoginVO;
-import course.QAssistant.pojo.vo.request.ResetPasswordVO;
+import course.QAssistant.pojo.vo.request.*;
 import course.QAssistant.pojo.vo.response.CheckCodeVO;
 import course.QAssistant.pojo.vo.response.R;
 import course.QAssistant.pojo.enums.ResponseCode;
+import course.QAssistant.pojo.vo.response.UserInfoVO;
 import course.QAssistant.pojo.vo.response.UserLoginVO;
 import course.QAssistant.service.EmailCodeService;
 import course.QAssistant.service.SysUserService;
 import course.QAssistant.util.IdWorker;
 import course.QAssistant.util.RedisUtil;
+import kotlin.sequences.FlatteningSequence;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.awt.*;
 import java.util.Date;
 
 import static course.QAssistant.handler.VerifyHandler.verifyCheckCode;
 
-
-/**
- * @author 1115suc
- * @description 针对表【sys_user(用户表)】的数据库操作Service实现
- * @createDate 2026-02-25 12:22:35
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -60,9 +56,13 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
     private final IdWorker idWorker;
     private final RedisUtil redisUtil;
     private final RedisComponent redisComponent;
+    private final MinIOFileService minIOFileService;
     private final PasswordEncoder passwordEncoder;
     private final SysUserMapper sysUserMapper;
     private final EmailCodeService emailCodeService;
+
+    private final static String MINIO_BUCKET_NAME = "1115suc";
+    private final static String MINIO_USER_AVATAR_CUSTOM = "QAssistant";
 
     @Override
     public R<CheckCodeVO> getCaptcha() {
@@ -221,7 +221,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
         } catch (Exception e) {
             throw new QAWebException(ResponseCode.ERROR.getMessage());
         }
-
     }
 
     @Override
@@ -256,6 +255,105 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser>
             return R.ok(ResponseCode.RESET_PASSWORD_SUCCESS.getMessage());
         } catch (Exception e) {
             log.error("获取用户token信息失败:{}, 登录方式:{}", e.getMessage(), loginType);
+            throw new QAWebException(ResponseCode.ERROR.getMessage());
+        }
+    }
+
+    @Override
+    public R<UserInfoVO> getUserInfo(String token, String loginType) {
+        try {
+            TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(token, loginType);
+
+            String uid = tokenUserDTO.getUid();
+            LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(SysUser::getUid, uid);
+            SysUser sysUser = sysUserMapper.selectOne(queryWrapper);
+
+            if (ObjectUtil.isNull(sysUser) || NumberUtil.equals(sysUser.getDeleted(), DeletedEnum.DELETED.getCode())) {
+                throw new QAWebException(ResponseCode.ACCOUNT_NOT_EXISTS.getMessage());
+            }
+
+            UserInfoVO userInfoVO = new UserInfoVO();
+            userInfoVO.setUid(sysUser.getUid());
+            userInfoVO.setNickName(sysUser.getNickName());
+            userInfoVO.setAvatar(sysUser.getAvatar());
+            userInfoVO.setEmail(sysUser.getEmail());
+            userInfoVO.setSex(sysUser.getSex());
+            userInfoVO.setPhone(sysUser.getPhone());
+            userInfoVO.setDescription(sysUser.getDescription());
+            userInfoVO.setBirthday(sysUser.getBirthday());
+            userInfoVO.setAreaName(sysUser.getAreaName());
+
+            return R.ok(userInfoVO);
+        } catch (Exception e) {
+            log.error("获取用户信息失败:{}", e.getMessage());
+            throw new QAWebException(ResponseCode.ERROR.getMessage());
+        }
+    }
+
+    @Override
+    public R updateUserInfo(String token, String loginType, UpdateUserInfoVO updateUserInfoVO) {
+        try {
+            TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(token, loginType);
+
+            String uid = tokenUserDTO.getUid();
+            LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(SysUser::getUid, uid);
+            SysUser sysUser = sysUserMapper.selectOne(queryWrapper);
+
+            if (ObjectUtil.isNull(sysUser) || NumberUtil.equals(sysUser.getDeleted(), DeletedEnum.DELETED.getCode())) {
+                throw new QAWebException(ResponseCode.ACCOUNT_NOT_EXISTS.getMessage());
+            }
+
+            // 只更新非空字段
+            if (ObjectUtil.isNotNull(updateUserInfoVO.getNickName())) {
+                sysUser.setNickName(updateUserInfoVO.getNickName());
+            }
+            MultipartFile avatar = updateUserInfoVO.getAvatar();
+            if (ObjectUtil.isNotNull(avatar)) {
+                FileUploadResponse fileUploadResponse = minIOFileService.uploadImage(avatar,
+                        MINIO_BUCKET_NAME, MINIO_USER_AVATAR_CUSTOM + sysUser.getUid() + "AVATAR", false);
+
+                sysUser.setAvatar(fileUploadResponse.getFileUrl());
+            }
+            if (ObjectUtil.isNotNull(updateUserInfoVO.getSex())) {
+                sysUser.setSex(updateUserInfoVO.getSex());
+            }
+            if (ObjectUtil.isNotNull(updateUserInfoVO.getRealName())) {
+                sysUser.setRealName(updateUserInfoVO.getRealName());
+            }
+            if (ObjectUtil.isNotNull(updateUserInfoVO.getPhone())) {
+                sysUser.setPhone(updateUserInfoVO.getPhone());
+            }
+            if (ObjectUtil.isNotNull(updateUserInfoVO.getDescription())) {
+                sysUser.setDescription(updateUserInfoVO.getDescription());
+            }
+            if (ObjectUtil.isNotNull(updateUserInfoVO.getBirthday())) {
+                sysUser.setBirthday(updateUserInfoVO.getBirthday());
+            }
+            if (ObjectUtil.isNotNull(updateUserInfoVO.getAreaName())) {
+                sysUser.setAreaName(updateUserInfoVO.getAreaName());
+            }
+
+            sysUser.setUpdateTime(new Date(System.currentTimeMillis()));
+            sysUserMapper.updateById(sysUser);
+
+            // 同步更新 Redis 中的用户昵称
+            Object tokenLoginInfo = redisUtil.get(LoginTypeEnum.of(Convert.toInt(loginType)).getPrefix() + token);
+            if (ObjectUtil.isNotNull(tokenLoginInfo)) {
+                TokenUserDTO cachedTokenUserDTO = JSONUtil.toBean(tokenLoginInfo.toString(), TokenUserDTO.class);
+                if (ObjectUtil.isNotNull(updateUserInfoVO.getNickName())) {
+                    cachedTokenUserDTO.setNickname(updateUserInfoVO.getNickName());
+                    redisUtil.set(LoginTypeEnum.of(Convert.toInt(loginType)).getPrefix() + token,
+                            JSONUtil.toJsonStr(cachedTokenUserDTO), TimeConstant.ONE_WEEK);
+                }
+            }
+
+            return R.ok("用户信息更新成功");
+        } catch (QAWebException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("更新用户信息失败:{}", e.getMessage());
             throw new QAWebException(ResponseCode.ERROR.getMessage());
         }
     }

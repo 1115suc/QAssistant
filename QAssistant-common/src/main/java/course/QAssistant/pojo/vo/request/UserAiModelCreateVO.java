@@ -12,9 +12,11 @@ public class UserAiModelCreateVO {
     @Schema(description = "模型名称")
     private String modelName;
 
+    @NotBlank(message = "模型调用URL不能为空")
     @Schema(description = "模型调用URL")
     private String baseUrl;
 
+    @NotBlank(message = "API Key不能为空")
     @Schema(description = "API Key")
     private String apiKey;
 

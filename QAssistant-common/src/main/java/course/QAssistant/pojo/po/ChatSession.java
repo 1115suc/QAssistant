@@ -11,6 +11,8 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -56,13 +58,13 @@ public class ChatSession {
      */
     @Indexed(name = "idx_createdAt")
     @Field("createdAt")
-    private Date createdAt;
+    private LocalDateTime createdAt;
 
     /**
      * 最后更新时间
      */
     @Field("updatedAt")
-    private Date updatedAt;
+    private LocalDateTime updatedAt;
 
     /**
      * 嵌套的聊天消息列表（核心：将 chat_message 内嵌到会话中）

@@ -11,11 +11,9 @@ import course.QAssistant.minio.enums.MinioFileTypeEnum;
 import course.QAssistant.minio.model.FileUploadResponse;
 import course.QAssistant.minio.properties.MinIOConfigProperties;
 import course.QAssistant.minio.service.MinIOFileService;
-import course.QAssistant.pojo.dto.FileDownloadDTO;
 import course.QAssistant.pojo.dto.TokenUserDTO;
 import course.QAssistant.pojo.po.Miniofile;
 import course.QAssistant.pojo.vo.request.FileDeleteVO;
-import course.QAssistant.pojo.vo.request.FileDownloadVO;
 import course.QAssistant.pojo.vo.request.FileListQueryVO;
 import course.QAssistant.pojo.vo.request.FileUploadVO;
 import course.QAssistant.pojo.vo.request.FileUrlVO;
@@ -24,12 +22,11 @@ import course.QAssistant.pojo.vo.response.FileUploadRespVO;
 import course.QAssistant.pojo.vo.response.FileUrlRespVO;
 import course.QAssistant.pojo.vo.response.R;
 import course.QAssistant.service.FileService;
-import course.QAssistant.service.MiniofileService;
+import course.QAssistant.service.LocalMinioFileService;
 import course.QAssistant.util.IdWorker;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.io.InputStream;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,9 +35,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FileServiceImpl implements FileService {
 
+    private final LocalMinioFileService fileService;
     private final MinIOFileService minIOFileService;
     private final MinIOConfigProperties minIOConfigProperties;
-    private final MiniofileService miniofileService;
     private final RedisComponent redisComponent;
     private final IdWorker idWorker;
 
@@ -65,7 +62,7 @@ public class FileServiceImpl implements FileService {
         record.setDeleted(0);
         record.setDeleteTime(null);
         record.setCreateTime(new Date(System.currentTimeMillis()));
-        miniofileService.save(record);
+        fileService.save(record);
 
         FileUploadRespVO vo = new FileUploadRespVO();
         vo.setId(record.getId());
@@ -86,7 +83,7 @@ public class FileServiceImpl implements FileService {
         TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(token, loginType);
         String uid = tokenUserDTO.getUid();
 
-        Miniofile record = miniofileService.getOne(new LambdaQueryWrapper<Miniofile>()
+        Miniofile record = fileService.getOne(new LambdaQueryWrapper<Miniofile>()
                 .eq(Miniofile::getId, deleteVO.getId())
                 .eq(Miniofile::getUid, uid)
                 .eq(Miniofile::getDeleted, 0));
@@ -98,7 +95,7 @@ public class FileServiceImpl implements FileService {
         minIOFileService.removeFile(record.getBucket(), record.getObjectName());
         record.setDeleted(1);
         record.setDeleteTime(new Date(System.currentTimeMillis()));
-        miniofileService.updateById(record);
+        fileService.updateById(record);
         return R.ok("删除成功");
     }
 
@@ -115,7 +112,7 @@ public class FileServiceImpl implements FileService {
 
         int pageNum = queryVO.getPageNum() == null ? 1 : queryVO.getPageNum();
         int pageSize = queryVO.getPageSize() == null ? 20 : queryVO.getPageSize();
-        IPage<Miniofile> page = miniofileService.page(new Page<>(pageNum, pageSize), wrapper);
+        IPage<Miniofile> page = fileService.page(new Page<>(pageNum, pageSize), wrapper);
 
         List<FileInfoRespVO> list = page.getRecords().stream().map(record -> {
             FileInfoRespVO vo = new FileInfoRespVO();
@@ -136,7 +133,7 @@ public class FileServiceImpl implements FileService {
         TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(token, loginType);
         String uid = tokenUserDTO.getUid();
 
-        Miniofile record = miniofileService.getOne(new LambdaQueryWrapper<Miniofile>()
+        Miniofile record = fileService.getOne(new LambdaQueryWrapper<Miniofile>()
                 .eq(Miniofile::getId, urlVO.getId())
                 .eq(Miniofile::getUid, uid)
                 .eq(Miniofile::getDeleted, 0));

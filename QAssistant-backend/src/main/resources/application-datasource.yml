@@ -25,9 +25,9 @@ spring:
       auto-commit: true
   data:
     redis:
-      host: ${redis.ip}
-      port: ${redis.port}
-      password: ${redis.password}
+      host: ${redis.vector.host}
+      port: ${redis.vector.port}
+      password: ${redis.vector.password}
       database: 0
     mongodb:
       host: ${mongodb.ip}

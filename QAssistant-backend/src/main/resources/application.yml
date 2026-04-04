@@ -12,6 +12,12 @@ spring:
     version: 1.0.0
   profiles:
     active: datasource,swagger,minio,local
+  servlet:
+    multipart:
+      # 单个文件最大大小
+      max-file-size: 100MB
+      # 请求最大大小（所有文件总和）
+      max-request-size: 100MB
   mail:
     # SMTP服务器地址
     host: smtp.qq.com

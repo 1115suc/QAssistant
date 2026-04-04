@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 /**
@@ -40,7 +41,7 @@ public class ChatMessageDocument {
      * 消息创建时间
      */
     @Field("createdAt")
-    private Date createdAt;
+    private LocalDateTime createdAt;
 
     /**
      * 角色枚举常量

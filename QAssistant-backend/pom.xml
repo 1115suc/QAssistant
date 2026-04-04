@@ -35,6 +35,11 @@
             <artifactId>spring-boot-starter-test</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-chroma</artifactId>
+        </dependency>
+
         <!-- MySql 数据库驱动 -->
         <dependency>
             <groupId>com.mysql</groupId>

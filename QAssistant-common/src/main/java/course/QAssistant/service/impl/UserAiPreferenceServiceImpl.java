@@ -17,11 +17,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.Date;
 
-/**
- * @author 32147
- * @description 针对表【user_ai_preference(用户AI个性化配置表)】的数据库操作Service实现
- * @createDate 2026-03-11 11:16:17
- */
 @Service
 @RequiredArgsConstructor
 public class UserAiPreferenceServiceImpl extends ServiceImpl<UserAiPreferenceMapper, UserAiPreference>

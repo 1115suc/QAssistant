@@ -51,6 +51,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
+        <!-- Spring Boot WebFlux-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
 
         <!-- AOP -->
         <dependency>
@@ -105,13 +110,22 @@
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai-spring-boot-starter</artifactId>
         </dependency>
+        <!--引入流式调用相关的依赖-->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-reactor</artifactId>
+        </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-easy-rag</artifactId>
         </dependency>
+<!--        <dependency>-->
+<!--            <groupId>dev.langchain4j</groupId>-->
+<!--            <artifactId>langchain4j-community-redis-spring-boot-starter</artifactId>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-qdrant</artifactId>
+            <artifactId>langchain4j-chroma</artifactId>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>

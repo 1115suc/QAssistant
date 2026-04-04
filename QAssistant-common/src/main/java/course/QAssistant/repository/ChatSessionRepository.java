@@ -12,8 +12,7 @@ import java.util.Optional;
  * ChatSession MongoDB Repository
  */
 @Repository
-public interface ChatSessionRepository extends MongoRepository<ChatSession, String> {
-
+public interface ChatSessionRepository extends MongoRepository<ChatSession, String>, ChatSessionCustomRepository{
     /**
      * 查询用户所有会话（按更新时间倒序，不返回 messages 字段，节省带宽）
      */

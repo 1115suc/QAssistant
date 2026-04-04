@@ -2,8 +2,10 @@ package course.QAssistant.service.impl;
 
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import course.QAssistant.LangChain4j.assistant.Assistant;
+import course.QAssistant.LangChain4j.service.ConsultantService;
+import course.QAssistant.LangChain4j.service.RagAssistant;
 import course.QAssistant.exception.QAWebException;
 import course.QAssistant.handler.RedisComponent;
 import course.QAssistant.mapper.MiniofileMapper;
@@ -13,7 +15,6 @@ import course.QAssistant.minio.service.MinIOFileService;
 import course.QAssistant.pojo.dto.CreateSessionRequest;
 import course.QAssistant.pojo.dto.SessionSummaryResponse;
 import course.QAssistant.pojo.dto.TokenUserDTO;
-import course.QAssistant.pojo.po.ChatMessageDocument;
 import course.QAssistant.pojo.po.ChatSession;
 import course.QAssistant.pojo.po.Miniofile;
 import course.QAssistant.pojo.po.UserAiModel;
@@ -22,8 +23,8 @@ import course.QAssistant.pojo.vo.request.ChatRequestVO;
 import course.QAssistant.pojo.vo.request.CreateSessionRequestVO;
 import course.QAssistant.pojo.vo.request.RagUploadVO;
 import course.QAssistant.pojo.vo.response.ChatSessionRespVO;
+import course.QAssistant.pojo.vo.response.DetailChatMessageVO;
 import course.QAssistant.pojo.vo.response.R;
-import course.QAssistant.properties.AiProperties;
 import course.QAssistant.repository.ChatSessionRepository;
 import course.QAssistant.service.ChatService;
 import course.QAssistant.service.ChatSessionService;
@@ -31,69 +32,56 @@ import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.Metadata;
+import dev.langchain4j.data.document.loader.UrlDocumentLoader;
 import dev.langchain4j.data.document.parser.TextDocumentParser;
 import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
 import dev.langchain4j.data.document.parser.apache.poi.ApachePoiDocumentParser;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
 import dev.langchain4j.data.embedding.Embedding;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.embedding.EmbeddingStore;
-import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
-import io.qdrant.client.QdrantClient;
-import io.qdrant.client.grpc.JsonWithInt;
-import io.qdrant.client.grpc.Points;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.bson.types.ObjectId;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Sinks;
 
-import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
-    private static final int    MEMORY_WINDOW_SIZE = 20;
-    private static final int    RAG_MAX_RESULTS    = 5;
-    private static final double RAG_MIN_SCORE      = 0.6;
-    private static final int    CHUNK_SIZE         = 500;
-    private static final int    CHUNK_OVERLAP      = 50;
+    private static final Double DEFAULT_TEMPERATURE = 0.7;
+    private static final Double DEFAULT_TOP_P = 1.0;
+    private static final Integer DEFAULT_MAX_TOKENS = 2048;
+    private static final int CHUNK_SIZE = 500;
+    private static final int CHUNK_OVERLAP = 50;
 
-    private final QdrantClient                   qdrantClient;
-    private final AiProperties                   aiProperties;
-    private final MongoTemplate                  mongoTemplate;
-    private final RedisComponent                 redisComponent;
-    private final MinIOFileService               minioFileService;
-    private final MiniofileMapper                miniofileMapper;
-    private final UserAiModelMapper              userAiModelMapper;
-    private final UserAiPreferenceMapper         userAiPreferenceMapper;
-    private final ChatSessionService             chatSessionService;
-    private final ChatSessionRepository          chatSessionRepository;
-    private final EmbeddingModel                 embeddingModel;
-    private final EmbeddingStore<TextSegment>    embeddingStore;
-    private final StreamingChatLanguageModel     defaultStreamingChatLanguageModel;
+    private final RedisComponent redisComponent;
+    private final MiniofileMapper miniofileMapper;
+    private final MinIOFileService minioFileService;
+    private final UserAiModelMapper userAiModelMapper;
+    private final UserAiPreferenceMapper userAiPreferenceMapper;
+    private final ChatSessionService chatSessionService;
+    private final ChatSessionRepository chatSessionRepository;
 
-    // ==================== 对外接口 ====================
+    private final ChatMemoryProvider chatMemoryProvider;
+    private final ContentRetriever contentRetriever;
+    private final EmbeddingModel embeddingModel;
+    private final EmbeddingStore<TextSegment> chromaEmbeddingStore;
+    private final OpenAiStreamingChatModel defaultStreamingChatModel;
 
     @Override
     public R<ChatSessionRespVO> createSession(CreateSessionRequestVO sessionCreateVO, String token, String loginType) {
@@ -143,78 +131,37 @@ public class ChatServiceImpl implements ChatService {
         return R.ok(result);
     }
 
+    // TODO
     @Override
-    public Flux<ServerSentEvent<String>> streamChat(ChatRequestVO chatRequestVO,
-                                                    String authorization, String loginType) {
-        Sinks.Many<ServerSentEvent<String>> sink =
-                Sinks.many().unicast().onBackpressureBuffer();
-
+    public R<DetailChatMessageVO> getSessionDetail(String sessionId, String token, String loginType) {
         try {
-            // ① 鉴权 & 会话归属校验
-            TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(authorization, loginType);
-            ChatSession session = chatSessionRepository
-                    .findByIdAndUserUid(chatRequestVO.getSessionId(), tokenUserDTO.getUid())
-                    .orElse(null);
+            TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(token, loginType);
 
-            if (session == null) {
-                sink.tryEmitNext(buildSseEvent("error", "会话不存在或无权访问"));
-                sink.tryEmitComplete();
-                return sink.asFlux();
+            // 使用自定义 Repository 方法查询，包含 messages 且按时间倒序
+            ChatSession session = chatSessionRepository
+                    .findByIdWithMessagesSortedDesc(sessionId)
+                    .orElseThrow(() -> new QAWebException("会话不存在"));
+
+            // 鉴权：确保会话属于当前用户
+            if (!session.getUserUid().equals(tokenUserDTO.getUid())) {
+                throw new QAWebException("无权访问该会话");
             }
 
-            // ② 重建历史记忆
-            ChatMemory chatMemory = rebuildChatMemory(session);
+            DetailChatMessageVO detailChatMessageVO = new DetailChatMessageVO();
+            detailChatMessageVO.setMessages(session.getMessages());
+            detailChatMessageVO.setSessionId(session.getId());
+            detailChatMessageVO.setTitle(session.getTitle());
+            detailChatMessageVO.setAiModelId(session.getAiModelId());
+            detailChatMessageVO.setCreatedAt(session.getCreatedAt());
+            detailChatMessageVO.setUpdatedAt(session.getUpdatedAt());
 
-            // ③ 构建模型
-            StreamingChatLanguageModel chatModel = buildChatModel(session);
-
-            // ④ 构建最终发送给模型的消息
-            //    若开启 RAG，先检索相关文档片段，拼接到用户消息前作为上下文
-            String finalMessage = buildFinalMessage(
-                    chatRequestVO.getMessage(),
-                    chatRequestVO.getRagEnabled(),
-                    session.getId(),
-                    sink
-            );
-
-            // ⑤ 构建 Assistant（不使用 LangChain4j RAG 管道）
-            Assistant assistant = AiServices.builder(Assistant.class)
-                    .streamingChatLanguageModel(chatModel)
-                    .chatMemory(chatMemory)
-                    .build();
-
-            // ⑥ 持久化用户原始消息（存原始问题，不存拼接后的 prompt）
-            pushMessage(session.getId(), "USER", chatRequestVO.getMessage());
-
-            // ⑦ 流式推送
-            StringBuilder aiResponseBuilder = new StringBuilder();
-            assistant.chat(finalMessage)
-                    .onNext(token -> {
-                        aiResponseBuilder.append(token);
-                        sink.tryEmitNext(buildSseEvent("message", token));
-                    })
-                    .onComplete(response -> {
-                        String fullReply = aiResponseBuilder.toString();
-                        pushMessage(session.getId(), "AI", fullReply);
-                        log.debug("[Chat] session={} 回复完毕，共 {} 字符",
-                                session.getId(), fullReply.length());
-                        sink.tryEmitNext(buildSseEvent("done", "[DONE]"));
-                        sink.tryEmitComplete();
-                    })
-                    .onError(error -> {
-                        log.error("[Chat] session={} 流式对话异常", session.getId(), error);
-                        sink.tryEmitNext(buildSseEvent("error", "AI 响应异常：" + error.getMessage()));
-                        sink.tryEmitComplete();
-                    })
-                    .start();
-
+            return R.ok(detailChatMessageVO);
+        } catch (QAWebException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("[Chat] streamChat 初始化异常", e);
-            sink.tryEmitNext(buildSseEvent("error", "服务异常：" + e.getMessage()));
-            sink.tryEmitComplete();
+            log.error("获取会话详情失败：{}", e.getMessage());
+            throw new QAWebException("获取会话失败");
         }
-
-        return sink.asFlux();
     }
 
     @Override
@@ -224,7 +171,7 @@ public class ChatServiceImpl implements ChatService {
         try {
             ChatSession session = chatSessionRepository
                     .findByIdAndUserUid(ragUploadVO.getSessionId(), tokenUserDTO.getUid())
-                    .orElseThrow(() -> new QAWebException("会话不存在或无权访问"));
+                    .orElseThrow(() -> new QAWebException("会话不存在"));
 
             Miniofile minioFile = miniofileMapper.selectOne(
                     new LambdaQueryWrapper<Miniofile>()
@@ -232,7 +179,7 @@ public class ChatServiceImpl implements ChatService {
                             .eq(Miniofile::getUid, tokenUserDTO.getUid())
             );
             if (ObjectUtil.isNull(minioFile)) {
-                throw new QAWebException("指定文件不存在或无权访问");
+                throw new QAWebException("指定文件不存在");
             }
 
             ingestToEmbeddingStore(minioFile, session.getId());
@@ -251,212 +198,200 @@ public class ChatServiceImpl implements ChatService {
 
     // ==================== 私有方法 ====================
 
-    private String buildFinalMessage(String userMessage,
-                                     Boolean ragEnabled,
-                                     String sessionId,
-                                     Sinks.Many<ServerSentEvent<String>> sink) {
-        if (!Boolean.TRUE.equals(ragEnabled)) {
-            return userMessage;
-        }
-
-        try {
-            // Step1：用户问题向量化
-            Embedding queryEmbedding = embeddingModel.embed(userMessage).content();
-            List<Float> queryVector = new ArrayList<>();
-            for (float v : queryEmbedding.vector()) queryVector.add(v);
-
-            // Step2：构建 sessionId 过滤条件
-            Points.Filter filter = Points.Filter.newBuilder()
-                    .addMust(
-                            Points.Condition.newBuilder()
-                                    .setField(
-                                            Points.FieldCondition.newBuilder()
-                                                    .setKey("sessionId")
-                                                    .setMatch(Points.Match.newBuilder()
-                                                            .setKeyword(sessionId)
-                                                            .build())
-                                                    .build()
-                                    )
-                                    .build()
-                    )
-                    .build();
-
-            // Step3：直接用 QdrantClient 搜索
-            //   ✅ 关键：setWithVectors(true) 确保返回向量，避免 CosineSimilarity 崩溃
-            Points.SearchPoints searchRequest = Points.SearchPoints.newBuilder()
-                    .setCollectionName("QAssistant")   // 替换为你的 collection 名称
-                    .addAllVector(queryVector)
-                    .setLimit(RAG_MAX_RESULTS)
-                    .setScoreThreshold((float) RAG_MIN_SCORE)
-                    .setFilter(filter)
-                    .setWithVectors(Points.WithVectorsSelector.newBuilder().setEnable(true).build())
-                    .setWithPayload(Points.WithPayloadSelector.newBuilder().setEnable(true).build())
-                    .build();
-
-            List<Points.ScoredPoint> scoredPoints = qdrantClient.searchAsync(searchRequest).get();
-
-            if (scoredPoints == null || scoredPoints.isEmpty()) {
-                log.debug("[RAG] session={} 未检索到相关内容，使用原始消息", sessionId);
-                sink.tryEmitNext(buildSseEvent("warn", "未检索到相关文档内容，已使用普通对话模式"));
-                return userMessage;
-            }
-
-            // Step4：命中片段拼接为上下文 prompt
-            StringBuilder contextBuilder = new StringBuilder();
-            contextBuilder.append("请根据以下参考资料回答用户的问题。\n\n");
-            contextBuilder.append("【参考资料】\n");
-            int index = 1;
-            for (Points.ScoredPoint point : scoredPoints) {
-                JsonWithInt.Value textValue = point.getPayloadMap().get("text");
-                if (textValue == null) continue;
-                if (textValue.getKindCase() != JsonWithInt.Value.KindCase.STRING_VALUE) continue;
-                String text = textValue.getStringValue();
-                if (text == null || text.isBlank()) continue;
-                contextBuilder.append(index++).append(". ").append(text).append("\n\n");
-            }
-            contextBuilder.append("【用户问题】\n").append(userMessage);
-
-            String finalMessage = contextBuilder.toString();
-            log.debug("[RAG] session={} 命中 {} 条，prompt 长度={}",
-                    sessionId, scoredPoints.size(), finalMessage.length());
-            return finalMessage;
-
-        } catch (Exception e) {
-            log.error("[RAG] session={} 检索异常，降级为普通对话: {}", sessionId, e.getMessage(), e);
-            sink.tryEmitNext(buildSseEvent("warn", "RAG 检索失败，已切换为普通对话模式"));
-            return userMessage;
-        }
-    }
-
     /**
-     * 从 MongoDB 历史消息重建 ChatMemory
-     */
-    private ChatMemory rebuildChatMemory(ChatSession session) {
-        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(MEMORY_WINDOW_SIZE);
-
-        List<ChatMessageDocument> messages = session.getMessages();
-        if (messages == null || messages.isEmpty()) {
-            return chatMemory;
-        }
-
-        for (ChatMessageDocument msg : messages) {
-            if (msg.getContent() == null || msg.getContent().isBlank()) continue;
-            switch (msg.getRole().toUpperCase()) {
-                case "USER":
-                    chatMemory.add(UserMessage.from(msg.getContent()));
-                    break;
-                case "AI":
-                case "ASSISTANT":
-                    chatMemory.add(AiMessage.from(msg.getContent()));
-                    break;
-                default:
-                    log.warn("[Memory] 未知消息角色：{}，已跳过", msg.getRole());
-            }
-        }
-
-        log.debug("[Memory] session={} 加载 {} 条历史消息", session.getId(), messages.size());
-        return chatMemory;
-    }
-
-    /**
-     * 文档解析 → 分块 → 打 sessionId 元数据标签 → 向量化入库
+     * 核心：向量化并写入 Chroma
+     * 与之前逻辑完全相同，只是 embeddingStore 底层实现换成了 Chroma
      */
     private void ingestToEmbeddingStore(Miniofile minioFile, String sessionId) {
-        InputStream inputStream = minioFileService.downloadFile(
+
+        // -------- 1. 加载文档 --------
+        String previewUrl = minioFileService.getPreviewUrl(
                 minioFile.getBucket(), minioFile.getObjectName());
 
         DocumentParser parser = resolveParser(minioFile.getFileName());
-        Document document = parser.parse(inputStream);
+        Document document = UrlDocumentLoader.load(previewUrl, parser);
 
-        Metadata metadata = document.metadata();
-        metadata.put("sessionId", sessionId);
-        metadata.put("fileId", String.valueOf(minioFile.getId()));
-        metadata.put("fileName", minioFile.getFileName() != null ? minioFile.getFileName() : "unknown");
-
-        DocumentSplitter splitter = DocumentSplitters.recursive(CHUNK_SIZE, CHUNK_OVERLAP);
-
-        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
-                .documentSplitter(splitter)
-                .embeddingModel(embeddingModel)
-                .embeddingStore(embeddingStore)
-                .build();
-
-        ingestor.ingest(document);
-        log.debug("[RAG] 文件 {} 分块向量化完毕，session={}", minioFile.getFileName(), sessionId);
-    }
-
-    /**
-     * 根据扩展名选择文档解析器
-     */
-    private DocumentParser resolveParser(String fileName) {
-        if (fileName == null) return new TextDocumentParser();
-        String lower = fileName.toLowerCase();
-        if (lower.endsWith(".pdf"))                              return new ApachePdfBoxDocumentParser();
-        if (lower.endsWith(".doc") || lower.endsWith(".docx"))  return new ApachePoiDocumentParser();
-        return new TextDocumentParser();
-    }
-
-    /**
-     * 构建 StreamingChatLanguageModel（自定义模型 > 系统默认）
-     */
-    private StreamingChatLanguageModel buildChatModel(ChatSession session) {
-        UserAiModel customModel = null;
-        UserAiPreference preference = null;
-
-        if (session.getAiModelId() != null) {
-            customModel = userAiModelMapper.selectById(session.getAiModelId());
-            preference = userAiPreferenceMapper.selectOne(
-                    new LambdaQueryWrapper<UserAiPreference>()
-                            .eq(UserAiPreference::getUserUid, session.getUserUid())
-                            .eq(UserAiPreference::getAiModelId, session.getAiModelId())
-            );
+        if (document.text() == null || document.text().isBlank()) {
+            log.warn("[RAG] 文件 {} 内容为空，跳过向量化", minioFile.getFileName());
+            return;
         }
 
-        String baseUrl    = ObjectUtil.isNotNull(customModel) ? customModel.getBaseUrl()   : aiProperties.getBaseUrl();
-        String apiKey     = ObjectUtil.isNotNull(customModel) ? customModel.getApiKey()    : aiProperties.getApiKey();
-        String modelName  = ObjectUtil.isNotNull(customModel) ? customModel.getModelName() : aiProperties.getModelName();
+        // -------- 2. 分段 --------
+        DocumentSplitter splitter = DocumentSplitters.recursive(CHUNK_SIZE, CHUNK_OVERLAP);
+        List<TextSegment> segments = splitter.split(document);
+
+        if (segments.isEmpty()) {
+            log.warn("[RAG] 文件 {} 分段结果为空，跳过", minioFile.getFileName());
+            return;
+        }
+
+        // -------- 3. 构建带 metadata 的分段 + 生成 embedding --------
+        List<TextSegment> finalSegments = new ArrayList<>(segments.size());
+        List<Embedding> embeddings = new ArrayList<>(segments.size());
+
+        for (int i = 0; i < segments.size(); i++) {
+            TextSegment segment = segments.get(i);
+
+            if (segment.text() == null || segment.text().isBlank()) {
+                log.debug("[RAG] 第 {} 段为空，跳过", i);
+                continue;
+            }
+
+            //  Chroma metadata：值只支持 String / int / float / boolean
+            Metadata metadata = new Metadata();
+            metadata.put("sessionId", sessionId);
+            metadata.put("index", String.valueOf(i));
+
+            TextSegment newSegment = TextSegment.from(segment.text(), metadata);
+            Embedding embedding = embeddingModel.embed(newSegment).content();
+
+            if (i == 0) {
+                log.info("[RAG] 模型输出向量维度: {}", embedding.vector().length);
+            }
+            if (embedding.vector().length == 0) {
+                log.error("[RAG] 第 {} 段生成的向量维度为 0，跳过！", i);
+                continue;
+            }
+
+            finalSegments.add(newSegment);
+            embeddings.add(embedding);
+        }
+
+        if (finalSegments.isEmpty()) {
+            log.warn("[RAG] 文件 {} 没有有效分段可存储", minioFile.getFileName());
+            return;
+        }
+
+        // -------- 4. 批量存入 Chroma（API 接口与 Qdrant 一致） --------
+        chromaEmbeddingStore.addAll(embeddings, finalSegments);
+
+        log.info("[RAG] ✅ 文件 {} 向量化完成, session={}, 有效chunks={}",
+                minioFile.getFileName(), sessionId, finalSegments.size());
+    }
+
+    @Override
+    public Flux<String> streamChat(ChatRequestVO chatRequestVO,
+                                   String authorization, String loginType) {
+        // 1. 鉴权 & 会话归属校验
+        TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(authorization, loginType);
+        ChatSession session = chatSessionRepository
+                .findByIdAndUserUid(chatRequestVO.getSessionId(), tokenUserDTO.getUid())
+                .orElse(null);
+
+        if (session == null) {
+            throw new QAWebException("会话不存在");
+        }
+
+        UserAiPreference preference = userAiPreferenceMapper.selectOne(
+                new LambdaQueryWrapper<UserAiPreference>()
+                        .eq(UserAiPreference::getUserUid, session.getUserUid())
+                        .eq(UserAiPreference::getAiModelId, session.getAiModelId())
+        );
+
+        String prompt = ObjectUtil.isNotNull(preference) && StrUtil.isNotBlank(preference.getSystemPrompt())
+                ? preference.getSystemPrompt()
+                : "你是一个专业的文档助手。请根据提供的上下文信息，准确回答用户问题。";
+
+        // 2. 构建模型
+        StreamingChatLanguageModel chatModel = buildChatModel(session, preference);
+
+        try {
+            // 3. 构建 Assistant
+            Flux<String> responseFlux;
+            if (chatRequestVO.getRagEnabled()) {
+                RagAssistant assistant = AiServices.builder(RagAssistant.class)
+                        .streamingChatLanguageModel(chatModel)
+                        .contentRetriever(contentRetriever)
+                        .chatMemoryProvider(chatMemoryProvider)
+                        .build();
+
+                responseFlux = assistant.chat(session.getId(), chatRequestVO.getMessage(), prompt);
+
+            } else {
+                ConsultantService consultantService = AiServices.builder(ConsultantService.class)
+                        .streamingChatLanguageModel(chatModel)
+                        .chatMemoryProvider(chatMemoryProvider)
+                        .build();
+
+                responseFlux = consultantService.chat(chatRequestVO.getMessage(), session.getId(), prompt);
+            }
+
+            // 5. 流式响应处理：拼接完整回复并持久化
+            StringBuilder aiResponseBuilder = new StringBuilder();
+
+            return responseFlux
+                    .doOnNext(token -> aiResponseBuilder.append(token))
+                    .doOnComplete(() -> {
+                    })
+                    .doOnError(error -> {
+                        log.error("[Chat] session={} 流式对话异常", session.getId(), error);
+                    })
+                    .onErrorResume(error -> {
+                        return Flux.just("AI 响应异常：" + error.getMessage());
+                    });
+        } catch (Exception e) {
+            log.error("[Chat] session={} 构建模型异常", session.getId(), e);
+            throw new QAWebException("构建模型异常");
+        }
+    }
+
+    // ==================== 文件解析器 ====================
+    private static final DocumentParser TEXT_PARSER = new TextDocumentParser();
+    private static final DocumentParser PDF_PARSER = new ApachePdfBoxDocumentParser();
+    private static final DocumentParser OFFICE_PARSER = new ApachePoiDocumentParser();
+
+    private static final Set<String> OFFICE_EXTENSIONS = Set.of(
+            "doc", "docx", "ppt", "pptx", "xls", "xlsx"
+    );
+
+    private DocumentParser resolveParser(String fileName) {
+        String ext = getExtension(fileName);
+        if (ext == null) throw new QAWebException("不支持的文件格式");
+        if ("pdf".equals(ext)) return PDF_PARSER;
+        if (OFFICE_EXTENSIONS.contains(ext)) return OFFICE_PARSER;
+        return TEXT_PARSER;
+    }
+
+    private String getExtension(String fileName) {
+        if (fileName == null || fileName.isBlank()) return null;
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot < 0 || lastDot == fileName.length() - 1) return null;
+        return fileName.substring(lastDot + 1).toLowerCase();
+    }
+
+    //  构建 StreamingChatLanguageModel（自定义模型 > 系统默认）
+    private StreamingChatLanguageModel buildChatModel(ChatSession session, UserAiPreference preference) {
+        if (session.getAiModelId() == null) {
+            return defaultStreamingChatModel;
+        }
+
+        UserAiModel customModel = userAiModelMapper.selectById(session.getAiModelId());
+        if (ObjectUtil.isNull(customModel)) {
+            log.debug("[Chat] 模型 {} 不存在，使用默认模型", session.getAiModelId());
+            throw new QAWebException("模型不存在，使用默认模型");
+        }
+
+        String baseUrl = customModel.getBaseUrl();
+        String apiKey = customModel.getApiKey();
+        String modelName = customModel.getModelName();
+
         Double temperature = ObjectUtil.isNotNull(preference)
-                ? Convert.toDouble(preference.getTemperature()) : aiProperties.getTemperature();
+                ? Convert.toDouble(preference.getTemperature())
+                : DEFAULT_TEMPERATURE;
         Double topP = ObjectUtil.isNotNull(preference)
-                ? Convert.toDouble(preference.getTopP()) : aiProperties.getTopP();
+                ? Convert.toDouble(preference.getTopP())
+                : DEFAULT_TOP_P;
+        Integer maxTokens = ObjectUtil.isNotNull(preference)
+                ? Convert.toInt(preference.getMaxTokens())
+                : DEFAULT_MAX_TOKENS;
 
         return OpenAiStreamingChatModel.builder()
-                .timeout(aiProperties.getTimeout())
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .temperature(temperature)
                 .topP(topP)
-                .build();
-    }
-
-    /**
-     * 持久化一条消息到 MongoDB
-     */
-    private void pushMessage(String sessionId, String role, String content) {
-        ChatMessageDocument message = ChatMessageDocument.builder()
-                .id(new ObjectId().toHexString())
-                .role(role)
-                .content(content)
-                .createdAt(new Date())
-                .build();
-
-        mongoTemplate.updateFirst(
-                Query.query(Criteria.where("_id").is(sessionId)),
-                new Update()
-                        .push("messages", message)
-                        .set("updated_at", new Date()),
-                ChatSession.class
-        );
-    }
-
-    /**
-     * 构建 SSE 事件
-     */
-    private ServerSentEvent<String> buildSseEvent(String event, String data) {
-        return ServerSentEvent.<String>builder()
-                .event(event)
-                .data(data)
+                .maxTokens(maxTokens)
                 .build();
     }
 }

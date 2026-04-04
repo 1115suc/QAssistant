@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 /**
@@ -18,5 +19,5 @@ public class MessageResponse {
     private String id;
     private String role;
     private String content;
-    private Date createdAt;
+    private LocalDateTime createdAt;
 }

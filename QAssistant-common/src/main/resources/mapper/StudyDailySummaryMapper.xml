@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="course.QAssistant.mapper.StudyDailySummaryMapper">
+
+    <resultMap id="BaseResultMap" type="course.QAssistant.pojo.po.StudyDailySummary">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="studyDate" column="study_date"/>
+        <result property="totalStudyMinutes" column="total_study_minutes"/>
+        <result property="totalRestMinutes" column="total_rest_minutes"/>
+        <result property="sessionCount" column="session_count"/>
+        <result property="categoryMinutes" column="category_minutes"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id
+        ,user_id,study_date,total_study_minutes,total_rest_minutes,session_count,
+        category_minutes,updated_at
+    </sql>
+
+    <select id="selectGoldenPeriod" resultType="java.util.Map">
+        SELECT
+        CASE
+        WHEN HOUR(start_time) >= 0 AND HOUR(start_time) &lt; 6 THEN 0
+        WHEN HOUR(start_time) >= 6 AND HOUR(start_time) &lt; 12 THEN 1
+        WHEN HOUR(start_time) >= 12 AND HOUR(start_time) &lt; 18 THEN 2
+        WHEN HOUR(start_time) >= 18 AND HOUR(start_time) &lt; 24 THEN 3
+        END AS period,
+        COALESCE(SUM(focus_minutes), 0) AS totalMinutes
+        FROM study_session
+        WHERE user_id = #{userId}
+        AND status != 1
+        <if test="startDate != null">
+            AND DATE(start_time) >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND DATE(start_time) &lt;= #{endDate}
+        </if>
+        GROUP BY period
+        ORDER BY period
+    </select>
+</mapper>

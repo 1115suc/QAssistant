@@ -2,12 +2,10 @@ package course.QAssistant.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import course.QAssistant.pojo.po.SysUser;
-import course.QAssistant.pojo.vo.request.EmailCodeLoginVO;
-import course.QAssistant.pojo.vo.request.EmailLoginVO;
-import course.QAssistant.pojo.vo.request.EmailPasswordLoginVO;
-import course.QAssistant.pojo.vo.request.ResetPasswordVO;
+import course.QAssistant.pojo.vo.request.*;
 import course.QAssistant.pojo.vo.response.CheckCodeVO;
 import course.QAssistant.pojo.vo.response.R;
+import course.QAssistant.pojo.vo.response.UserInfoVO;
 import course.QAssistant.pojo.vo.response.UserLoginVO;
 
 /**
@@ -28,4 +26,8 @@ public interface SysUserService extends IService<SysUser> {
     R logout(String token, String loginType);
     // 重置密码
     R resetPassword(String token, String loginType, ResetPasswordVO resetVo);
+    // 获取用户信息
+    R<UserInfoVO> getUserInfo(String token, String loginType);
+    // 修改用户信息
+    R updateUserInfo(String token, String loginType, UpdateUserInfoVO updateUserInfoVO);
 }

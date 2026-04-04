@@ -1,6 +1,5 @@
 package course.QAssistant.controller;
 
-import course.QAssistant.annotation.PreventRepeatSubmit;
 import course.QAssistant.annotation.VerificationInterceptor;
 import course.QAssistant.pojo.vo.request.UserAiPreferenceUpdateVO;
 import course.QAssistant.pojo.vo.response.R;

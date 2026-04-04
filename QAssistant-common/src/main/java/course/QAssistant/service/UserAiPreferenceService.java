@@ -6,11 +6,6 @@ import course.QAssistant.pojo.vo.request.UserAiPreferenceUpdateVO;
 import course.QAssistant.pojo.vo.response.R;
 import course.QAssistant.pojo.vo.response.UserAiPreferenceVO;
 
-/**
-* @author 32147
-* @description 针对表【user_ai_preference(用户AI个性化配置表)】的数据库操作Service
-* @createDate 2026-03-11 11:16:17
-*/
 public interface UserAiPreferenceService extends IService<UserAiPreference> {
 
     /**

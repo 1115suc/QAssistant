@@ -16,7 +16,7 @@ import java.util.UUID;
 /**
  * JWT工具类
  */
-public class JwtUtil {
+public class QAssistantJwtUtil {
 
     //有效期为
     public static final Long JWT_TTL = TimeConstant.ONE_WEEK * 1000L;
@@ -56,7 +56,7 @@ public class JwtUtil {
         long nowMillis = System.currentTimeMillis();
         Date now = new Date(nowMillis);
         if(ttlMillis==null){
-            ttlMillis=JwtUtil.JWT_TTL;
+            ttlMillis= QAssistantJwtUtil.JWT_TTL;
         }
         long expMillis = nowMillis + ttlMillis;
         Date expDate = new Date(expMillis);

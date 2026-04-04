@@ -5,6 +5,7 @@ import course.QAssistant.pojo.vo.request.ChatRequestVO;
 import course.QAssistant.pojo.vo.request.CreateSessionRequestVO;
 import course.QAssistant.pojo.vo.request.RagUploadVO;
 import course.QAssistant.pojo.vo.response.ChatSessionRespVO;
+import course.QAssistant.pojo.vo.response.DetailChatMessageVO;
 import course.QAssistant.pojo.vo.response.R;
 import course.QAssistant.service.ChatService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -18,13 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
@@ -67,18 +62,22 @@ public class ChatController {
         return chatService.getUserSessions(token, loginType);
     }
 
-    @Operation(summary = "发送聊天消息 (流式响应)", description = "支持系统默认模型与用户自定义模型，带上下文记忆。")
+    @Operation(
+            summary = "获取用户聊天记录",
+            description = "获取当前登录用户的会话中的聊天记录。",
+            method = "GET"
+    )
     @Parameters({
-            @Parameter(name = "Authorization", description = "用户Token", required = true, in = ParameterIn.HEADER),
-            @Parameter(name = "LoginType", description = "登录方式(1.Web 2.Android 3.ios)", required = true, in = ParameterIn.HEADER)
+            @Parameter(name = "Authorization", description = "用户 Token", required = true, in = ParameterIn.HEADER),
+            @Parameter(name = "LoginType", description = "登录方式 (1.Web 2.Android 3.ios)", required = true, in = ParameterIn.HEADER),
+            @Parameter(name = "sessionId", description = "会话ID", required = true, in = ParameterIn.PATH)
     })
     @VerificationInterceptor(checkLogin = true)
-    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE) // GET 不适合携带 Body，建议改为 POST
-    public Flux<ServerSentEvent<String>> streamChat(
-            @NotBlank(message = "Authorization不能为空") @RequestHeader("Authorization") String token,
-            @NotBlank(message = "LoginType不能为空") @RequestHeader("LoginType") String loginType,
-            @RequestBody ChatRequestVO chatRequestVO) {
-        return chatService.streamChat(chatRequestVO, token, loginType);
+    @GetMapping("/{sessionId}")
+    public R<DetailChatMessageVO> getChatHistory(@NotBlank(message = "Authorization 不能为空") @RequestHeader("Authorization") String token,
+                                                 @NotBlank(message = "LoginType 不能为空") @RequestHeader("LoginType") String loginType,
+                                                 @NotBlank(message = "sessionId 不能为空") @PathVariable("sessionId") String sessionId) {
+        return chatService.getSessionDetail(sessionId, token, loginType);
     }
 
     @Operation(summary = "对文档进行RAG解析", description = "用户上传文件后进行切分并存入Qdrant知识库，在同一会话中提供RAG支持。")
@@ -93,5 +92,20 @@ public class ChatController {
             @NotBlank(message = "LoginType不能为空") @RequestHeader("LoginType") String loginType,
             @RequestBody RagUploadVO ragUploadVO) {
         return chatService.ingestDocument(ragUploadVO, token, loginType);
+    }
+
+
+    @Operation(summary = "发送聊天消息 (流式响应)", description = "支持系统默认模型与用户自定义模型，带上下文记忆。")
+    @Parameters({
+            @Parameter(name = "Authorization", description = "用户Token", required = true, in = ParameterIn.HEADER),
+            @Parameter(name = "LoginType", description = "登录方式(1.Web 2.Android 3.ios)", required = true, in = ParameterIn.HEADER)
+    })
+    @VerificationInterceptor(checkLogin = true)
+    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE) // GET 不适合携带 Body，建议改为 POST
+    public Flux<String> streamChat(
+            @NotBlank(message = "Authorization不能为空") @RequestHeader("Authorization") String token,
+            @NotBlank(message = "LoginType不能为空") @RequestHeader("LoginType") String loginType,
+            @RequestBody ChatRequestVO chatRequestVO) {
+        return chatService.streamChat(chatRequestVO, token, loginType);
     }
 }

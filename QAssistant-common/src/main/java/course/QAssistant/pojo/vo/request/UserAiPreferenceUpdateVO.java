@@ -16,9 +16,9 @@ public class UserAiPreferenceUpdateVO {
     @NotNull(message = "模型ID不能为空")
     private Long aiModelId;
 
-    @Schema(description = "温度参数 (0.0 - 2.0)")
+    @Schema(description = "温度参数 (0.0 - 1.0)")
     @DecimalMin(value = "0.0", message = "温度参数最小为0.0")
-    @DecimalMax(value = "2.0", message = "温度参数最大为2.0")
+    @DecimalMax(value = "1.0", message = "温度参数最大为1.0")
     private BigDecimal temperature;
 
     @Schema(description = "核采样参数 (0.0 - 1.0)")

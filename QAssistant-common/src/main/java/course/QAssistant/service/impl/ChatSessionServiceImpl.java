@@ -20,6 +20,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,7 +42,7 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
     @Override
     public SessionSummaryResponse createSession(CreateSessionRequest request) {
-        Date now = new Date();
+        LocalDateTime now = LocalDateTime.now();
         ChatSession session = ChatSession.builder()
                 .userUid(request.getUserUid())
                 .title(request.getTitle())
@@ -77,12 +78,11 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
     @Override
     public SessionSummaryResponse updateSession(String sessionId, String userUid,
-                                                         UpdateSessionRequest request) {
-        // 鉴权：确认会话属于该用户
+                                                UpdateSessionRequest request) {
         findSessionWithAuth(sessionId, userUid);
 
         Query query = Query.query(Criteria.where("_id").is(sessionId));
-        Update update = new Update().set("updated_at", new Date());
+        Update update = new Update().set("updated_at", LocalDateTime.now());
 
         if (request.getTitle() != null) {
             update.set("title", request.getTitle());
@@ -93,12 +93,12 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
         mongoTemplate.updateFirst(query, update, ChatSession.class);
 
-        // 返回更新后的数据
         ChatSession updated = chatSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found: " + sessionId));
         log.info("Updated session [{}]", sessionId);
         return toSummaryResponse(updated);
     }
+
 
     @Override
     public void deleteSession(String sessionId, String userUid) {
@@ -119,21 +119,19 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
     @Override
     public MessageResponse addMessage(SendMessageRequest request) {
-        // 鉴权
         findSessionWithAuth(request.getSessionId(), request.getUserUid());
 
         ChatMessageDocument message = ChatMessageDocument.builder()
-                .id(new ObjectId().toHexString())  // 手动生成 ObjectId
+                .id(new ObjectId().toHexString())
                 .role(request.getRole())
                 .content(request.getContent())
-                .createdAt(new Date())
+                .createdAt(LocalDateTime.now())
                 .build();
 
-        // 使用 $push 追加消息，同步更新 updatedAt
         Query query = Query.query(Criteria.where("_id").is(request.getSessionId()));
         Update update = new Update()
                 .push("messages", message)
-                .set("updated_at", new Date());
+                .set("updated_at", LocalDateTime.now());
 
         mongoTemplate.updateFirst(query, update, ChatSession.class);
         log.info("Added message [{}] to session [{}]", message.getId(), request.getSessionId());
@@ -151,14 +149,12 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
     @Override
     public void deleteMessage(String sessionId, String messageId, String userUid) {
-        // 鉴权
         findSessionWithAuth(sessionId, userUid);
 
-        // 使用 $pull 按 _id 移除指定消息
         Query query = Query.query(Criteria.where("_id").is(sessionId));
         Update update = new Update()
                 .pull("messages", Query.query(Criteria.where("_id").is(messageId)))
-                .set("updated_at", new Date());
+                .set("updated_at", LocalDateTime.now());
 
         mongoTemplate.updateFirst(query, update, ChatSession.class);
         log.info("Deleted message [{}] from session [{}]", messageId, sessionId);
@@ -166,17 +162,17 @@ public class ChatSessionServiceImpl implements ChatSessionService {
 
     @Override
     public void clearMessages(String sessionId, String userUid) {
-        // 鉴权
         findSessionWithAuth(sessionId, userUid);
 
         Query query = Query.query(Criteria.where("_id").is(sessionId));
         Update update = new Update()
                 .set("messages", List.of())
-                .set("updated_at", new Date());
+                .set("updated_at", LocalDateTime.now());
 
         mongoTemplate.updateFirst(query, update, ChatSession.class);
         log.info("Cleared all messages in session [{}]", sessionId);
     }
+
 
     // ====================================================================
     // 私有工具方法
