@@ -95,6 +95,12 @@
                 <artifactId>spring-boot-starter-webflux</artifactId>
                 <version>${spring.boot.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-configuration-processor</artifactId>
+                <version>${spring.boot.version}</version>
+                <optional>true</optional>
+            </dependency>
 
             <!-- MySql -->
             <dependency>
@@ -154,7 +160,12 @@
                 <version>${aspectj.version}</version>
             </dependency>
 
-            <!--LangChain4j-->
+            <!-- LangChain4j 核心依赖 -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j</artifactId>
+                <version>${langchain4j.version}</version>
+            </dependency>
             <!--AiServices相关的依赖-->
             <dependency>
                 <groupId>dev.langchain4j</groupId>
@@ -172,6 +183,7 @@
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-reactor</artifactId>
                 <version>${langchain4j.version}</version>
+
             </dependency>
             <!--rag-easy依赖-->
             <dependency>
@@ -179,11 +191,6 @@
                 <artifactId>langchain4j-easy-rag</artifactId>
                 <version>${langchain4j.version}</version>
             </dependency>
-<!--            <dependency>-->
-<!--                <groupId>dev.langchain4j</groupId>-->
-<!--                <artifactId>langchain4j-community-redis-spring-boot-starter</artifactId>-->
-<!--                <version>${langchain4j.version}</version>-->
-<!--            </dependency>-->
             <dependency>
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-chroma</artifactId>
