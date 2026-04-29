@@ -202,13 +202,9 @@ public class ChatServiceImpl implements ChatService {
      * @param token     用户 token
      * @param loginType 登录类型
      */
-    // @Override
+    @Override
     public R ingestDocumentsByFileIds(List<Long> fileIds, String token, String loginType) {
         TokenUserDTO tokenUserDTO = redisComponent.getTokenUserDTO(token, loginType);
-
-        if (CollectionUtil.isEmpty(fileIds)) {
-            return R.error("文件 ID 列表不能为空");
-        }
 
         // 查询属于该用户的所有文件
         List<Miniofile> minioFiles = miniofileMapper.selectList(
@@ -235,7 +231,7 @@ public class ChatServiceImpl implements ChatService {
 
         for (Miniofile minioFile : minioFiles) {
             try {
-                // ✅ 无会话场景：用 uid 作为 namespace 隔离向量数据
+                // 无会话场景：用 uid 作为 namespace 隔离向量数据
                 ingestToEmbeddingStore(minioFile, null);
                 successList.add(minioFile.getFileName());
                 log.info("[RAG] 文件向量化完成 | file={} | uid={}",

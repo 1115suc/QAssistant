@@ -23,6 +23,7 @@
 hs_err_pid*
 replay_pid*
 
+.vscode
 .idea
 document/log
 QAssistant-admin/target

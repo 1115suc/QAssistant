@@ -6,7 +6,6 @@ import course.QAssistant.pojo.vo.request.RagUploadVO;
 import course.QAssistant.pojo.vo.response.ChatSessionRespVO;
 import course.QAssistant.pojo.vo.response.DetailChatMessageVO;
 import course.QAssistant.pojo.vo.response.R;
-import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -20,6 +19,8 @@ public interface ChatService {
     R<DetailChatMessageVO> getSessionDetail(String sessionId, String token, String loginType);
     // RAG 文件上传
     R ingestDocument(RagUploadVO ragUploadVO, String token, String loginType);
+    // RAG 文件上传
+    R ingestDocumentsByFileIds(List<Long> fileIds, String token, String loginType);
     // 聊天功能
     Flux<String> streamChat(ChatRequestVO chatRequestVO, String token, String loginType);
 }
