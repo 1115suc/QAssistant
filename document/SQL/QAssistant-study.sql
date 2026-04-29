@@ -1,3 +1,5 @@
+USE `QAssistant`;
+
 CREATE TABLE `study_session`
 (
     `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',

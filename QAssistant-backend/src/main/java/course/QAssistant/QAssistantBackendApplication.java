@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Slf4j
 @MapperScan("course.QAssistant.mapper")
-@SpringBootApplication()
+@SpringBootApplication
 @EnableScheduling  // 开启定时任务
 public class QAssistantBackendApplication {
     public static void main(String[] args) {

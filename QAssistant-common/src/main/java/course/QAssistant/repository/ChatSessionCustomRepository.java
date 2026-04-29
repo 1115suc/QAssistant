@@ -1,6 +1,7 @@
 package course.QAssistant.repository;
 
 import course.QAssistant.pojo.po.ChatSession;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;

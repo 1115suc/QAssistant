@@ -13,6 +13,7 @@ import course.QAssistant.util.RedisUtil;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -61,9 +62,9 @@ public class EmailCodeServiceImpl implements EmailCodeService {
             helper.setFrom(emailConfig.getUsername());
             helper.setTo(toEmail);
 
-            helper.setSubject("QAssistant 邮箱验证码");
+            helper.setSubject("青途优卷 邮箱验证码");
 
-            String htmlContent = new String(Files.readAllBytes(Paths.get("document/email/EmailHtml.html")));
+            String htmlContent = new String(Files.readAllBytes(Paths.get("email/EmailHtml.html")));
             htmlContent = htmlContent.replace("123456", code);
             helper.setText(htmlContent, true);
 

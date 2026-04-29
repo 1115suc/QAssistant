@@ -1,6 +1,8 @@
 import cn.hutool.json.JSONUtil;
 import course.QAssistant.QAssistantBackendApplication;
 import course.QAssistant.pojo.vo.request.GenerateQuestionsRequestVO;
+import course.QAssistant.pojo.vo.response.R;
+import course.QAssistant.repository.QuizPaperService;
 import course.QAssistant.service.QuizService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +17,8 @@ import java.util.List;
 public class AIChatTest {
     @Resource
     private QuizService quizService;
+    @Resource
+    private QuizPaperService quizPaperService;
 
     @Test
     public void testGenerateQuiz() {
@@ -31,6 +35,7 @@ public class AIChatTest {
         String test = quizService.generateQuiz(generateQuestionsRequestVO, "d92feb162d5559c492cf583e4a773f64", "1");
         System.out.println(JSONUtil.toJsonPrettyStr(test));
         System.out.println("生成题目成功");
-
     }
+
+
 }

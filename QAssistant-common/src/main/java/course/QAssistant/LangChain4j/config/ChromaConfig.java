@@ -4,12 +4,14 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.chroma.ChromaEmbeddingStore;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
 
+@Slf4j
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "chroma")
@@ -21,11 +23,24 @@ public class ChromaConfig {
 
     @Bean
     public EmbeddingStore<TextSegment> chromaEmbeddingStore() {
-        return ChromaEmbeddingStore.builder()
-                .baseUrl(baseUrl)
-                .collectionName(collectionName)
-                .logRequests(true)
-                .logResponses(true)
-                .build();
+        log.info("正在初始化 Chroma 向量存储 - URL: {}, Collection: {}, Timeout: {}s",
+                baseUrl, collectionName, timeout);
+
+        try {
+            ChromaEmbeddingStore store = ChromaEmbeddingStore.builder()
+                    .baseUrl(baseUrl)
+                    .collectionName(collectionName != null && !collectionName.trim().isEmpty() ? collectionName : "default")
+                    .timeout(java.time.Duration.ofSeconds(timeout))
+                    .logRequests(true)
+                    .logResponses(true)
+                    .build();
+
+            log.info("Chroma 向量存储初始化成功");
+            return store;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "初始化 Chroma 向量存储失败！详细错误：" + e.getMessage(),
+                    e);
+        }
     }
 }
