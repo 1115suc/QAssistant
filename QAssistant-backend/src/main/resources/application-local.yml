@@ -3,33 +3,33 @@ email:
   password: xmhauivhgeafcchb
 
 mysql:
-  ip: 192.168.150.128
+  ip: 8.154.26.200
   port: 3306
   username: root
-  password: 24364726
+  password: Cq57142836$
 
 redis:
   vector:
-    host: 192.168.150.128
+    host: 8.154.26.200
     port: 6379
-    password: 24364726
+    password:
 
 chroma:
-  base-url: http://192.168.150.128:8000
+  base-url: http://8.154.26.200:8000
   collection-name: QAssistant
   timeout: 30
 
 mongodb:
-  ip: 192.168.150.128
+  ip: 8.154.26.200
   port: 27017
   database: QAssistant
   username: root
-  password: 24364726
+  password: Cq57142836$
 
 minio:
-  url: http://192.168.150.128:9000
+  url: http://8.154.26.200:9000
   accessKey: minio
-  secretKey: bo@DwF1mzr_wF7am
+  secretKey: Cq57142836$
   bucketName: 1115suc
 
 ai:
